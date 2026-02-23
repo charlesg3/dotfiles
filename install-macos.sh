@@ -74,10 +74,12 @@ ok "Default profile set to charlesg3"
 
 header "Stats"
 if [[ -d "/Applications/Stats.app" ]]; then
+    defaults import eu.exelban.Stats "$DOTFILES/stats/Stats.plist"
+    ok "Stats preferences imported"
     osascript -e 'tell application "System Events" to make login item at end with properties {path:"/Applications/Stats.app", hidden:false}' &>/dev/null
     ok "Stats set to launch at login"
 else
-    warn "Stats.app not found, skipping login item"
+    warn "Stats.app not found, skipping"
 fi
 
 # ── Kitty ─────────────────────────────────────────────────────────────────────
