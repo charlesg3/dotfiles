@@ -6,6 +6,7 @@
 export PATH="$HOME/.local/bin:$HOME/src/dotfiles/scripts:$PATH"
 
 alias vim='nvim'
+alias update-config='$HOME/src/dotfiles/install.sh --nvim'
 command -v colordiff &>/dev/null && alias diff='colordiff'
 alias tmux='tmux -2'
 alias ll='ls -l'

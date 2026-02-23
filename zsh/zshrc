@@ -16,6 +16,7 @@ autoload -Uz compinit
 compinit
 
 alias vim='nvim'
+alias update-config='$HOME/src/dotfiles/install.sh --nvim'
 command -v colordiff &>/dev/null && alias diff='colordiff'
 
 export PATH="$HOME/.local/bin:$HOME/src/dotfiles/scripts:$PATH"
