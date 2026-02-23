@@ -3,7 +3,7 @@
 # If not running interactively, don't do anything
 [ -z "$PS1" ] && return
 
-export PATH="$PATH:$HOME/src/scripts:$HOME/.local/bin"
+export PATH="$HOME/.local/bin:$HOME/src/dotfiles/scripts:$PATH"
 
 alias vim='nvim'
 command -v colordiff &>/dev/null && alias diff='colordiff'

@@ -18,7 +18,7 @@ compinit
 alias vim='nvim'
 command -v colordiff &>/dev/null && alias diff='colordiff'
 
-export PATH="$HOME/.local/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/src/dotfiles/scripts:$PATH"
 
 test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh" || true
 
