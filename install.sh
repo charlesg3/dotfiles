@@ -2,10 +2,11 @@
 # Sets up and updates dotfiles on a machine. Safe to run repeatedly.
 #
 # Usage:
-#   ./install.sh [--nvim] [--email EMAIL]
+#   ./install.sh [--nvim] [--node] [--email EMAIL]
 #
 # Flags:
 #   --nvim         Also install/update the nvim config
+#   --node         Also install Node.js (LTS) and npm
 #   --email EMAIL  Git email address (skips interactive prompt)
 
 set -e
@@ -14,16 +15,18 @@ DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 . "$DOTFILES/common.sh"
 
 INSTALL_NVIM=false
+INSTALL_NODE=false
 GIT_EMAIL=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         --nvim)        INSTALL_NVIM=true ;;
+        --node)        INSTALL_NODE=true ;;
         --email)       GIT_EMAIL="$2"; shift ;;
         --email=*)     GIT_EMAIL="${1#--email=}" ;;
         *)
             err "Unknown option: $1"
-            echo "Usage: $0 [--nvim] [--email EMAIL]"
+            echo "Usage: $0 [--nvim] [--node] [--email EMAIL]"
             exit 1
             ;;
     esac
@@ -146,6 +149,26 @@ if [[ "$INSTALL_NVIM" == true ]]; then
     if [ -f "$NVIM_DIR/scripts/install.sh" ]; then
         warn "Running nvim install.sh..."
         bash "$NVIM_DIR/scripts/install.sh"
+    fi
+fi
+
+# ── Node ──────────────────────────────────────────────────────────────────────
+
+if [[ "$INSTALL_NODE" == true ]]; then
+    header "Node"
+    if command -v node &>/dev/null; then
+        ok "node ($(node --version))"
+    elif command -v brew &>/dev/null; then
+        warn "Installing node..."
+        brew install node
+        ok "node installed ($(node --version))"
+    elif command -v apt-get &>/dev/null; then
+        warn "Installing node via NodeSource..."
+        curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+        sudo apt-get install -y nodejs
+        ok "node installed ($(node --version))"
+    else
+        warn "node: no supported package manager"
     fi
 fi
 
