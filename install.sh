@@ -78,7 +78,7 @@ if [[ "$INSTALL_NVIM" == true ]]; then
         ok "$NVIM_DIR already exists"
     else
         warn "Cloning nvim config..."
-        git clone --depth=1 https://github.com/charlesg3/nvim "$NVIM_DIR"
+        git clone --recurse-submodules --depth=1 --shallow-submodules git@github.com:charlesg3/nvim.git "$NVIM_DIR"
         ok "nvim config cloned"
     fi
     if [ -f "$NVIM_DIR/scripts/install.sh" ]; then
