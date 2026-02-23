@@ -47,6 +47,7 @@ link() {
 echo -e "${BOLD}${CYAN}Shell${RESET}"
 link "$DOTFILES/zsh/zshrc"    "$HOME/.zshrc"
 link "$DOTFILES/zsh/zprofile" "$HOME/.zprofile"
+link "$DOTFILES/bash/bashrc"  "$HOME/.bashrc"
 
 # ── Git ───────────────────────────────────────────────────────────────────────
 
