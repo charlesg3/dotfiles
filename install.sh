@@ -30,6 +30,17 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
+install_pkg() {
+    local pkg="$1"
+    if command -v brew &>/dev/null; then
+        brew list --formula "$pkg" &>/dev/null && ok "$pkg" || { warn "Installing $pkg..."; brew install "$pkg" && ok "$pkg installed"; }
+    elif command -v apt-get &>/dev/null; then
+        dpkg -s "$pkg" &>/dev/null && ok "$pkg" || { warn "Installing $pkg..."; sudo apt-get install -y "$pkg" && ok "$pkg installed"; }
+    else
+        warn "$pkg: no supported package manager"
+    fi
+}
+
 link() {
     local src="$1"
     local dst="$2"
@@ -58,6 +69,20 @@ fi
 GIT_EMAIL="${GIT_EMAIL:-charlesg3@gmail.com}"
 sed "s/YOUR_EMAIL_HERE/$GIT_EMAIL/" "$DOTFILES/git/gitconfig" > "$HOME/.gitconfig"
 ok "~/.gitconfig (email: $GIT_EMAIL)"
+
+# ── CLI tools ─────────────────────────────────────────────────────────────────
+
+header "CLI tools"
+install_pkg jq
+install_pkg tree
+install_pkg htop
+install_pkg ncdu
+install_pkg colordiff
+
+# ── Kitty ─────────────────────────────────────────────────────────────────────
+
+header "Kitty"
+link "$DOTFILES/kitty/kitty.conf" "$HOME/.config/kitty/kitty.conf"
 
 # ── GitHub CLI ────────────────────────────────────────────────────────────────
 

@@ -6,6 +6,7 @@
 export PATH="$PATH:$HOME/src/scripts:$HOME/.local/bin"
 
 alias vim='nvim'
+command -v colordiff &>/dev/null && alias diff='colordiff'
 alias tmux='tmux -2'
 alias ll='ls -l'
 alias dirsize='du -sm ./* | sort -g'
