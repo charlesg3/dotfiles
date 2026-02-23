@@ -1,0 +1,25 @@
+HISTFILE=~/.histfile
+HISTSIZE=1000
+SAVEHIST=1000
+
+zstyle :compinstall filename '$HOME/.zshrc'
+
+# Enable color support for ls
+alias ls='ls --color=auto'
+
+# Custom prompt
+# Colors: green=32, red=31, white=37, blue=34, yellow=33
+# %n = username, %m = hostname, %~ = current working directory
+PROMPT='%F{green}%n%F{red}@%F{green}%m%F{white}:%F{blue}%~ %F{yellow}$%f '
+
+autoload -Uz compinit
+compinit
+
+alias vim='nvim'
+
+export PATH="$HOME/.local/bin:$PATH"
+
+test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh" || true
+
+# ── Local overrides (machine-specific, not tracked) ──────────────────────────
+[ -f "$HOME/.zshrc.local" ] && source "$HOME/.zshrc.local"
