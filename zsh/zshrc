@@ -10,7 +10,7 @@ alias ls='ls --color=auto'
 # Custom prompt
 # Colors: green=32, red=31, white=37, blue=34, yellow=33
 # %n = username, %m = hostname, %~ = current working directory
-PROMPT='%(?.%F{green}▶%f.%F{red}▶%f) %F{green}%n%F{red}@%F{green}%m%F{white}:%F{blue}%~ %F{yellow}$%f '
+PROMPT='%(?.%F{green}▸%f.%F{13}▸%f)%F{green}%n%F{red}@%F{green}%m%F{white}:%F{blue}%~ %F{yellow}$%f '
 
 autoload -Uz compinit
 compinit
