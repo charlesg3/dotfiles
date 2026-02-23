@@ -45,7 +45,6 @@ brew_install ripgrep
 brew_install tree
 brew_install watch
 brew_install coreutils
-brew_install glow
 brew_install git-lfs
 
 # ── GitHub / GitLab ───────────────────────────────────────────────────────────

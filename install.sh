@@ -94,6 +94,19 @@ install_pkg htop
 install_pkg ncdu
 install_pkg colordiff
 
+if command -v glow &>/dev/null; then
+    ok "glow"
+elif command -v brew &>/dev/null; then
+    warn "Installing glow..."; brew install glow && ok "glow installed"
+elif command -v apt-get &>/dev/null; then
+    warn "Installing glow..."
+    curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+    echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" \
+        | sudo tee /etc/apt/sources.list.d/charm.list > /dev/null
+    sudo apt-get update -q && sudo apt-get install -y glow
+    ok "glow installed"
+fi
+
 # ── Kitty ─────────────────────────────────────────────────────────────────────
 
 header "Kitty"
