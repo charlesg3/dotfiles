@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Sets up dotfiles on a new machine.
+# Sets up and updates dotfiles on a machine. Safe to run repeatedly.
 #
 # Usage:
 #   ./install.sh [--nvim] [--email EMAIL]
 #
 # Flags:
-#   --nvim         Also clone and set up the nvim config
+#   --nvim         Also install/update the nvim config
 #   --email EMAIL  Git email address (skips interactive prompt)
 
 set -e
@@ -53,6 +53,15 @@ link() {
     ok "$dst"
 }
 
+# ── Self-update ───────────────────────────────────────────────────────────────
+
+header "Dotfiles"
+if git -C "$DOTFILES" pull --ff-only 2>/dev/null; then
+    ok "dotfiles up to date"
+else
+    warn "could not pull dotfiles (offline or diverged?)"
+fi
+
 # ── Shell ─────────────────────────────────────────────────────────────────────
 
 header "Shell"
@@ -64,7 +73,13 @@ link "$DOTFILES/bash/bashrc"  "$HOME/.bashrc"
 
 header "Git"
 if [[ -z "$GIT_EMAIL" ]]; then
-    read -r -p "  Git email address [charlesg3@gmail.com]: " GIT_EMAIL
+    # Non-interactive: skip prompt if email already configured
+    CURRENT_EMAIL=$(git config --global user.email 2>/dev/null || true)
+    if [[ -n "$CURRENT_EMAIL" ]]; then
+        GIT_EMAIL="$CURRENT_EMAIL"
+    else
+        read -r -p "  Git email address [charlesg3@gmail.com]: " GIT_EMAIL
+    fi
 fi
 GIT_EMAIL="${GIT_EMAIL:-charlesg3@gmail.com}"
 sed "s/YOUR_EMAIL_HERE/$GIT_EMAIL/" "$DOTFILES/git/gitconfig" > "$HOME/.gitconfig"
@@ -106,8 +121,10 @@ fi
 if [[ "$INSTALL_NVIM" == true ]]; then
     header "Nvim"
     NVIM_DIR="$HOME/.config/nvim"
-    if [ -d "$NVIM_DIR" ]; then
-        ok "$NVIM_DIR already exists"
+    if [ -d "$NVIM_DIR/.git" ]; then
+        warn "Updating nvim config..."
+        git -C "$NVIM_DIR" pull --ff-only 2>/dev/null && ok "nvim config updated" || warn "could not pull nvim config"
+        git -C "$NVIM_DIR" submodule update --remote --depth=1 2>/dev/null && ok "plugins updated" || true
     else
         warn "Cloning nvim config..."
         git clone --recurse-submodules --depth=1 --shallow-submodules https://github.com/charlesg3/nvim.git "$NVIM_DIR"
@@ -117,6 +134,15 @@ if [[ "$INSTALL_NVIM" == true ]]; then
         warn "Running nvim install.sh..."
         bash "$NVIM_DIR/scripts/install.sh"
     fi
+fi
+
+# ── OS-specific ───────────────────────────────────────────────────────────────
+
+OS="$(uname -s)"
+if [[ "$OS" == "Darwin" ]]; then
+    bash "$DOTFILES/install-macos.sh"
+elif [[ "$OS" == "Linux" ]]; then
+    bash "$DOTFILES/install-linux.sh"
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
