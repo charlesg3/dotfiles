@@ -17,8 +17,18 @@ compinit
 
 alias vim='nvim'
 alias tree='tree -C'
+alias ll='ls -l'
+alias dirsize='du -sm ./* | sort -g'
+alias ffs='sudo !!'
 alias update-config='$HOME/src/dotfiles/install.sh --nvim'
 command -v colordiff &>/dev/null && alias diff='colordiff'
+
+alias grep='grep --color=auto'
+alias igrep='grep -i --color=auto'
+alias rgrep='grep -r --color=auto'
+alias irgrep='grep -ri --color=auto'
+
+alias yt-dl-mp3='yt-dlp --output "%(title)s.%(ext)s" --yes-playlist --cookies ~/Downloads/youtube.com_cookies.txt -x --audio-format mp3'
 
 export PATH="$HOME/.local/bin:$HOME/src/dotfiles/scripts:$PATH"
 
