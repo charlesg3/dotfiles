@@ -57,7 +57,43 @@ brew_install glab
 
 header "Apps"
 cask_install iterm2
+cask_install kitty
 cask_install stats
+
+# ── iTerm2 ────────────────────────────────────────────────────────────────────
+
+header "iTerm2"
+ITERM_PROFILES="$HOME/Library/Application Support/iTerm2/DynamicProfiles"
+mkdir -p "$ITERM_PROFILES"
+ln -sf "$DOTFILES/iterm2/Dotfiles.json" "$ITERM_PROFILES/Dotfiles.json"
+ok "Dynamic profile linked"
+defaults write com.googlecode.iterm2 "Default Bookmark Guid" "com.charlesg3.dotfiles"
+ok "Default profile set to charlesg3"
+
+# ── Stats ─────────────────────────────────────────────────────────────────────
+
+header "Stats"
+if [[ -d "/Applications/Stats.app" ]]; then
+    osascript -e 'tell application "System Events" to make login item at end with properties {path:"/Applications/Stats.app", hidden:false}' &>/dev/null
+    ok "Stats set to launch at login"
+else
+    warn "Stats.app not found, skipping login item"
+fi
+
+# ── Kitty ─────────────────────────────────────────────────────────────────────
+
+header "Kitty"
+if [[ -d "/Applications/kitty.app" ]]; then
+    osascript <<'APPLESCRIPT'
+tell application "Finder"
+    set the icon of (POSIX file "/Applications/kitty.app" as alias) to ¬
+        (get the icon of (path to application "Terminal"))
+end tell
+APPLESCRIPT
+    ok "Kitty icon set to Terminal icon"
+else
+    warn "kitty.app not found, skipping icon swap"
+fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 
