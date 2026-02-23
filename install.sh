@@ -2,10 +2,11 @@
 # Sets up dotfiles on a new machine.
 #
 # Usage:
-#   ./install.sh [--nvim]
+#   ./install.sh [--nvim] [--email EMAIL]
 #
 # Flags:
-#   --nvim   Also clone and set up the nvim config
+#   --nvim         Also clone and set up the nvim config
+#   --email EMAIL  Git email address (skips interactive prompt)
 
 set -e
 
@@ -13,16 +14,20 @@ DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 . "$DOTFILES/common.sh"
 
 INSTALL_NVIM=false
+GIT_EMAIL=""
 
-for arg in "$@"; do
-    case $arg in
-        --nvim) INSTALL_NVIM=true ;;
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --nvim)        INSTALL_NVIM=true ;;
+        --email)       GIT_EMAIL="$2"; shift ;;
+        --email=*)     GIT_EMAIL="${1#--email=}" ;;
         *)
-            err "Unknown option: $arg"
-            echo "Usage: $0 [--nvim]"
+            err "Unknown option: $1"
+            echo "Usage: $0 [--nvim] [--email EMAIL]"
             exit 1
             ;;
     esac
+    shift
 done
 
 link() {
@@ -47,7 +52,9 @@ link "$DOTFILES/bash/bashrc"  "$HOME/.bashrc"
 # ── Git ───────────────────────────────────────────────────────────────────────
 
 header "Git"
-read -r -p "  Git email address [charlesg3@gmail.com]: " GIT_EMAIL
+if [[ -z "$GIT_EMAIL" ]]; then
+    read -r -p "  Git email address [charlesg3@gmail.com]: " GIT_EMAIL
+fi
 GIT_EMAIL="${GIT_EMAIL:-charlesg3@gmail.com}"
 sed "s/YOUR_EMAIL_HERE/$GIT_EMAIL/" "$DOTFILES/git/gitconfig" > "$HOME/.gitconfig"
 ok "~/.gitconfig (email: $GIT_EMAIL)"
