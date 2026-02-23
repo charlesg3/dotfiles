@@ -9,21 +9,16 @@
 
 set -e
 
-BOLD='\033[1m'
-GREEN='\033[0;32m'
-CYAN='\033[0;36m'
-YELLOW='\033[0;33m'
-RED='\033[0;31m'
-RESET='\033[0m'
-
 DOTFILES="$(cd "$(dirname "$0")" && pwd)"
+. "$DOTFILES/common.sh"
+
 INSTALL_NVIM=false
 
 for arg in "$@"; do
     case $arg in
         --nvim) INSTALL_NVIM=true ;;
         *)
-            echo -e "${RED}Unknown option: $arg${RESET}"
+            err "Unknown option: $arg"
             echo "Usage: $0 [--nvim]"
             exit 1
             ;;
@@ -35,43 +30,59 @@ link() {
     local dst="$2"
     mkdir -p "$(dirname "$dst")"
     if [ -e "$dst" ] && [ ! -L "$dst" ]; then
-        echo -e "  ${YELLOW}~${RESET} $dst exists (not a symlink), backing up to ${dst}.bak"
+        warn "$dst exists (not a symlink), backing up to ${dst}.bak"
         mv "$dst" "${dst}.bak"
     fi
     ln -sf "$src" "$dst"
-    echo -e "  ${GREEN}✓${RESET} $dst"
+    ok "$dst"
 }
 
 # ── Shell ─────────────────────────────────────────────────────────────────────
 
-echo -e "${BOLD}${CYAN}Shell${RESET}"
+header "Shell"
 link "$DOTFILES/zsh/zshrc"    "$HOME/.zshrc"
 link "$DOTFILES/zsh/zprofile" "$HOME/.zprofile"
 link "$DOTFILES/bash/bashrc"  "$HOME/.bashrc"
 
 # ── Git ───────────────────────────────────────────────────────────────────────
 
-echo -e "\n${BOLD}${CYAN}Git${RESET}"
+header "Git"
 read -r -p "  Git email address [charlesg3@gmail.com]: " GIT_EMAIL
 GIT_EMAIL="${GIT_EMAIL:-charlesg3@gmail.com}"
-
 sed "s/YOUR_EMAIL_HERE/$GIT_EMAIL/" "$DOTFILES/git/gitconfig" > "$HOME/.gitconfig"
-echo -e "  ${GREEN}✓${RESET} ~/.gitconfig (email: $GIT_EMAIL)"
+ok "~/.gitconfig (email: $GIT_EMAIL)"
+
+# ── GitHub CLI ────────────────────────────────────────────────────────────────
+
+header "GitHub CLI"
+if command -v gh &>/dev/null; then
+    ok "gh"
+elif command -v apt-get &>/dev/null; then
+    warn "Installing gh via apt..."
+    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+        | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+    sudo apt-get update -q && sudo apt-get install -y gh
+    ok "gh installed"
+else
+    warn "gh: no supported package manager — install manually from https://cli.github.com"
+fi
 
 # ── Nvim ──────────────────────────────────────────────────────────────────────
 
 if [[ "$INSTALL_NVIM" == true ]]; then
-    echo -e "\n${BOLD}${CYAN}Nvim${RESET}"
+    header "Nvim"
     NVIM_DIR="$HOME/.config/nvim"
     if [ -d "$NVIM_DIR" ]; then
-        echo -e "  ${GREEN}✓${RESET} $NVIM_DIR already exists"
+        ok "$NVIM_DIR already exists"
     else
-        echo -e "  ${YELLOW}~${RESET} Cloning nvim config..."
+        warn "Cloning nvim config..."
         git clone --depth=1 https://github.com/charlesg3/nvim "$NVIM_DIR"
-        echo -e "  ${GREEN}✓${RESET} nvim config cloned"
+        ok "nvim config cloned"
     fi
     if [ -f "$NVIM_DIR/scripts/install.sh" ]; then
-        echo -e "  ${YELLOW}~${RESET} Running nvim install.sh..."
+        warn "Running nvim install.sh..."
         bash "$NVIM_DIR/scripts/install.sh"
     fi
 fi
