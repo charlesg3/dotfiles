@@ -3,65 +3,158 @@
 # Safe to run repeatedly.
 #
 # Usage:
-#   ./update.sh
+#   ./update.sh [--node] [--docker] [--vault]
+#
+# Flags:
+#   --node    Also upgrade Node.js and npm (otherwise just reports if outdated)
+#   --docker  Also upgrade Docker         (otherwise just reports if outdated)
+#   --vault   Also upgrade Vault          (otherwise just reports if outdated)
 
 set -e
 
 DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 . "$DOTFILES/common.sh"
 
-BREW_PKGS=(jq tree htop ncdu colordiff bat eza zsh-autosuggestions zsh-syntax-highlighting glow gh vault docker colima)
-BREW_CASKS=()
-APT_PKGS=(jq tree htop ncdu colordiff bat eza xclip zsh-autosuggestions zsh-syntax-highlighting glow gh vault docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin)
+UPDATE_NODE=false
+UPDATE_DOCKER=false
+UPDATE_VAULT=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --node)   UPDATE_NODE=true ;;
+        --docker) UPDATE_DOCKER=true ;;
+        --vault)  UPDATE_VAULT=true ;;
+        *)
+            err "Unknown option: $1"
+            echo "Usage: $0 [--node] [--docker] [--vault]"
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+# Packages to always upgrade
+BREW_PKGS=(jq tree htop ncdu colordiff bat eza zsh-autosuggestions zsh-syntax-highlighting glow gh colima)
+APT_PKGS=(jq tree htop ncdu colordiff bat eza xclip zsh-autosuggestions zsh-syntax-highlighting glow gh)
+
+_spin()       { printf "  ${DIM}⟳${RESET}  %s..." "$1"; }
+_clear_spin() { printf "\r\033[2K"; }
 
 # ── Homebrew (macOS) ──────────────────────────────────────────────────────────
+
+_brew_update() {
+    local pkg="$1" do_upgrade="${2:-true}" hint="${3:-}"
+    brew list --formula "$pkg" &>/dev/null || return 0
+    local version
+    version=$(brew list --versions "$pkg" | awk '{print $NF}')
+    _spin "$pkg"
+    if brew outdated --formula "$pkg" 2>/dev/null | grep -q .; then
+        if [[ "$do_upgrade" == true ]]; then
+            brew upgrade --quiet "$pkg" 2>/dev/null || true
+            local new_version
+            new_version=$(brew list --versions "$pkg" | awk '{print $NF}')
+            _clear_spin; ok "$pkg ${GREEN}$new_version${RESET} ${DIM}(updated from $version)${RESET}"
+        else
+            local new_version
+            new_version=$(brew outdated --formula "$pkg" 2>/dev/null | awk '{print $NF}' | tr -d ')')
+            _clear_spin; warn "$pkg: ${YELLOW}$version → $new_version${RESET} available — re-run with $hint to upgrade"
+        fi
+    else
+        _clear_spin; ok "$pkg ${DIM}$version${RESET}"
+    fi
+}
 
 if command -v brew &>/dev/null; then
     header "Homebrew"
     warn "Fetching updates..."
     brew update -q
+
     for pkg in "${BREW_PKGS[@]}"; do
-        brew list --formula "$pkg" &>/dev/null || continue
-        brew upgrade "$pkg" 2>/dev/null && ok "$pkg updated" || ok "$pkg"
+        _brew_update "$pkg"
     done
-    for cask in "${BREW_CASKS[@]}"; do
-        brew list --cask "$cask" &>/dev/null || continue
-        brew upgrade --cask "$cask" 2>/dev/null && ok "$cask updated" || ok "$cask"
-    done
+
+    _brew_update docker "$UPDATE_DOCKER" "--docker"
+    _brew_update vault  "$UPDATE_VAULT"  "--vault"
+    _brew_update node   "$UPDATE_NODE"   "--node"
+fi
+
+# ── npm ───────────────────────────────────────────────────────────────────────
+
+if command -v npm &>/dev/null; then
+    header "npm"
+    current=$(npm --version)
+    _spin "npm"
+    latest=$(npm view npm version 2>/dev/null || echo "")
+    _clear_spin
+    if [[ "$UPDATE_NODE" == true ]]; then
+        npm install -g npm --quiet && ok "npm ${DIM}updated${RESET}" || true
+    elif [[ -n "$latest" && "$current" != "$latest" ]]; then
+        warn "npm: ${YELLOW}$current → $latest${RESET} available — re-run with --node to upgrade"
+    else
+        ok "npm ${DIM}$current${RESET}"
+    fi
 fi
 
 # ── apt (Linux) ───────────────────────────────────────────────────────────────
 
+_apt_update() {
+    local pkg="$1" do_upgrade="${2:-true}" hint="${3:-}"
+    dpkg -s "$pkg" &>/dev/null || return 0
+    local installed candidate
+    installed=$(dpkg -s "$pkg" | awk '/^Version:/ {print $2}')
+    candidate=$(apt-cache policy "$pkg" 2>/dev/null | awk '/Candidate:/ {print $2}')
+    _spin "$pkg"
+    if [[ -n "$candidate" && "$installed" != "$candidate" ]]; then
+        if [[ "$do_upgrade" == true ]]; then
+            sudo apt-get install -y -qq --only-upgrade "$pkg" >/dev/null 2>&1 || true
+            _clear_spin; ok "$pkg ${GREEN}$candidate${RESET} ${DIM}(updated from $installed)${RESET}"
+        else
+            _clear_spin; warn "$pkg: ${YELLOW}$installed → $candidate${RESET} available — re-run with $hint to upgrade"
+        fi
+    else
+        _clear_spin; ok "$pkg ${DIM}$installed${RESET}"
+    fi
+}
+
 if command -v apt-get &>/dev/null; then
     header "apt"
     warn "Fetching updates..."
-    sudo apt-get update -q
+    sudo apt-get update -qq
+
     for pkg in "${APT_PKGS[@]}"; do
-        dpkg -s "$pkg" &>/dev/null || continue
-        sudo apt-get install -y --only-upgrade "$pkg" && ok "$pkg" || true
+        _apt_update "$pkg"
     done
+
+    _apt_update docker-ce "$UPDATE_DOCKER" "--docker"
+    if [[ "$UPDATE_DOCKER" == true ]]; then
+        for pkg in docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin; do
+            _apt_update "$pkg" true
+        done
+    fi
+
+    _apt_update vault "$UPDATE_VAULT" "--vault"
 fi
 
 # ── ble.sh (GitHub nightly) ───────────────────────────────────────────────────
 
 if [[ -f "$HOME/.local/share/blesh/ble.sh" ]]; then
     header "ble.sh"
-    warn "Updating ble.sh..."
+    _spin "ble.sh"
     tmp="$(mktemp -d)"
     curl -fsSL https://github.com/akinomyoga/ble.sh/releases/download/nightly/ble-nightly.tar.xz \
         | tar xJf - -C "$tmp"
-    bash "$tmp/ble-nightly/ble.sh" --install "$HOME/.local/share/blesh"
+    bash "$tmp/ble-nightly/ble.sh" --install "$HOME/.local/share/blesh" >/dev/null 2>&1
     rm -rf "$tmp"
-    ok "ble.sh updated"
+    _clear_spin; ok "ble.sh ${DIM}updated${RESET}"
 fi
 
 # ── Kitty (Linux) ─────────────────────────────────────────────────────────────
 
 if command -v kitty &>/dev/null && [[ "$(uname)" == "Linux" ]]; then
     header "Kitty"
-    warn "Updating kitty..."
-    kitty +update-kitty || true
-    ok "kitty"
+    _spin "kitty"
+    kitty +update-kitty >/dev/null 2>&1 || true
+    _clear_spin; ok "kitty ${DIM}$(kitty --version | awk '{print $2}')${RESET}"
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────

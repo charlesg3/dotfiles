@@ -98,7 +98,7 @@ install_pkg ncdu
 install_pkg colordiff
 install_pkg bat
 install_pkg eza
-install_pkg xclip
+[[ "$(uname)" == "Linux" ]] && install_pkg xclip
 install_pkg zsh-autosuggestions
 install_pkg zsh-syntax-highlighting
 
