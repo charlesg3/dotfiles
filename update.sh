@@ -143,7 +143,7 @@ if [[ -f "$HOME/.local/share/blesh/ble.sh" ]]; then
     tmp="$(mktemp -d)"
     curl -fsSL https://github.com/akinomyoga/ble.sh/releases/download/nightly/ble-nightly.tar.xz \
         | tar xJf - -C "$tmp"
-    bash "$tmp/ble-nightly/ble.sh" --install "$HOME/.local/share/blesh" >/dev/null 2>&1
+    bash "$tmp/ble-nightly/ble.sh" --install "$HOME/.local/share" >/dev/null 2>&1
     rm -rf "$tmp"
     _clear_spin; ok "ble.sh ${DIM}updated${RESET}"
 fi

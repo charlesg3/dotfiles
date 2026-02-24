@@ -35,7 +35,7 @@ else
     tmp="$(mktemp -d)"
     curl -fsSL https://github.com/akinomyoga/ble.sh/releases/download/nightly/ble-nightly.tar.xz \
         | tar xJf - -C "$tmp"
-    bash "$tmp/ble-nightly/ble.sh" --install "$HOME/.local/share/blesh"
+    bash "$tmp/ble-nightly/ble.sh" --install "$HOME/.local/share"
     rm -rf "$tmp"
     ok "ble.sh installed"
 fi
