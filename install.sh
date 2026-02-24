@@ -96,6 +96,8 @@ install_pkg tree
 install_pkg htop
 install_pkg ncdu
 install_pkg colordiff
+install_pkg bat
+install_pkg eza
 
 if command -v glow &>/dev/null; then
     ok "glow"
