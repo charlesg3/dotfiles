@@ -132,7 +132,53 @@ if command -v apt-get &>/dev/null; then
         done
     fi
 
-    _apt_update vault "$UPDATE_VAULT" "--vault"
+    # Ubuntu release upgrade check
+    if command -v do-release-upgrade &>/dev/null; then
+        _spin "ubuntu release"
+        release_out=$(do-release-upgrade -c 2>&1 || true)
+        _clear_spin
+        if echo "$release_out" | grep -q "New release"; then
+            new_release=$(echo "$release_out" | grep -oP "'\K[^']+(?=' available)")
+            warn "Ubuntu: ${YELLOW}new release $new_release available${RESET} — run: sudo do-release-upgrade"
+        else
+            ok "ubuntu ${DIM}$(lsb_release -rs)${RESET}"
+        fi
+    fi
+
+    # Vault: check dpkg first, fall through to binary check below
+    if ! dpkg -s vault &>/dev/null; then
+        : # handled in the binary vault section below
+    else
+        _apt_update vault "$UPDATE_VAULT" "--vault"
+    fi
+fi
+
+# ── Vault binary (Linux, manually installed) ──────────────────────────────────
+
+if command -v vault &>/dev/null && ! dpkg -s vault &>/dev/null; then
+    header "Vault"
+    installed=$(vault version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    _spin "vault"
+    latest=$(curl -fsSL https://checkpoint-api.hashicorp.com/v1/check/vault 2>/dev/null \
+        | python3 -c "import sys,json; print(json.load(sys.stdin)['current_version'])" 2>/dev/null || echo "")
+    _clear_spin
+    if [[ -z "$latest" ]]; then
+        warn "vault ${DIM}$installed${RESET} (could not check latest)"
+    elif [[ "$installed" == "$latest" ]]; then
+        ok "vault ${DIM}$installed${RESET}"
+    elif [[ "$UPDATE_VAULT" == true ]]; then
+        _spin "vault upgrading to $latest"
+        arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+        tmp="$(mktemp -d)"
+        curl -fsSL "https://releases.hashicorp.com/vault/${latest}/vault_${latest}_linux_${arch}.zip" \
+            -o "$tmp/vault.zip"
+        unzip -q "$tmp/vault.zip" -d "$tmp"
+        sudo mv "$tmp/vault" /usr/local/bin/vault
+        rm -rf "$tmp"
+        _clear_spin; ok "vault ${GREEN}$latest${RESET} ${DIM}(updated from $installed)${RESET}"
+    else
+        warn "vault: ${YELLOW}$installed → $latest${RESET} available — re-run with --vault to upgrade"
+    fi
 fi
 
 # ── ble.sh (GitHub nightly) ───────────────────────────────────────────────────
