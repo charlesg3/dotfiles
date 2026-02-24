@@ -4,6 +4,7 @@ alias ll='ls -l'
 alias dirsize='du -sm ./* | sort -g'
 alias ffs='sudo !!'
 alias update-config='$HOME/src/dotfiles/install.sh --nvim'
+alias update-tools='$HOME/src/dotfiles/update.sh'
 command -v colordiff &>/dev/null && alias diff='colordiff'
 
 # cat: syntax highlighting via bat, markdown via glow
