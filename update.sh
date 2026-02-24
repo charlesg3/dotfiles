@@ -10,8 +10,9 @@ set -e
 DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 . "$DOTFILES/common.sh"
 
-BREW_PKGS=(jq tree htop ncdu colordiff bat eza zsh-autosuggestions zsh-syntax-highlighting glow gh)
-APT_PKGS=(jq tree htop ncdu colordiff bat eza xclip zsh-autosuggestions zsh-syntax-highlighting glow gh)
+BREW_PKGS=(jq tree htop ncdu colordiff bat eza zsh-autosuggestions zsh-syntax-highlighting glow gh vault)
+BREW_CASKS=(docker)
+APT_PKGS=(jq tree htop ncdu colordiff bat eza xclip zsh-autosuggestions zsh-syntax-highlighting glow gh vault docker-ce docker-ce-cli)
 
 # ── Homebrew (macOS) ──────────────────────────────────────────────────────────
 
@@ -22,6 +23,10 @@ if command -v brew &>/dev/null; then
     for pkg in "${BREW_PKGS[@]}"; do
         brew list --formula "$pkg" &>/dev/null || continue
         brew upgrade "$pkg" 2>/dev/null && ok "$pkg updated" || ok "$pkg"
+    done
+    for cask in "${BREW_CASKS[@]}"; do
+        brew list --cask "$cask" &>/dev/null || continue
+        brew upgrade --cask "$cask" 2>/dev/null && ok "$cask updated" || ok "$cask"
     done
 fi
 
