@@ -10,9 +10,9 @@ set -e
 DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 . "$DOTFILES/common.sh"
 
-BREW_PKGS=(jq tree htop ncdu colordiff bat eza zsh-autosuggestions zsh-syntax-highlighting glow gh vault)
-BREW_CASKS=(docker)
-APT_PKGS=(jq tree htop ncdu colordiff bat eza xclip zsh-autosuggestions zsh-syntax-highlighting glow gh vault docker-ce docker-ce-cli)
+BREW_PKGS=(jq tree htop ncdu colordiff bat eza zsh-autosuggestions zsh-syntax-highlighting glow gh vault docker colima)
+BREW_CASKS=()
+APT_PKGS=(jq tree htop ncdu colordiff bat eza xclip zsh-autosuggestions zsh-syntax-highlighting glow gh vault docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin)
 
 # ── Homebrew (macOS) ──────────────────────────────────────────────────────────
 
