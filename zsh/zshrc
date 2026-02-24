@@ -23,8 +23,17 @@ compinit
 alias vim='nvim'
 command -v eza &>/dev/null && alias tree='eza --tree --icons=auto --color=always' || alias tree='tree -C'
 alias ll='ls -l'
-if command -v bat &>/dev/null; then alias cat='bat --paging=never'
-elif command -v batcat &>/dev/null; then alias cat='batcat --paging=never'; fi
+cat() {
+    if [[ "$1" == *.md ]] && command -v glow &>/dev/null; then
+        glow "$@"
+    elif command -v bat &>/dev/null; then
+        bat --paging=never --style=plain "$@"
+    elif command -v batcat &>/dev/null; then
+        batcat --paging=never --style=plain "$@"
+    else
+        command cat "$@"
+    fi
+}
 command -v eza  &>/dev/null && alias ls='eza --color=always --icons=auto' && alias ll='eza -l --color=always --icons=auto --git'
 alias dirsize='du -sm ./* | sort -g'
 alias ffs='sudo !!'
