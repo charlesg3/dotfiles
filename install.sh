@@ -98,6 +98,7 @@ install_pkg ncdu
 install_pkg colordiff
 install_pkg bat
 install_pkg eza
+install_pkg xclip
 
 if command -v glow &>/dev/null; then
     ok "glow"

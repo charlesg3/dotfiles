@@ -21,15 +21,22 @@ autoload -Uz compinit
 compinit
 
 alias vim='nvim'
-alias tree='tree -C'
+command -v eza &>/dev/null && alias tree='eza --tree --icons=auto --color=always' || alias tree='tree -C'
 alias ll='ls -l'
 if command -v bat &>/dev/null; then alias cat='bat --paging=never'
 elif command -v batcat &>/dev/null; then alias cat='batcat --paging=never'; fi
-command -v eza  &>/dev/null && alias ls='eza --color=always' && alias ll='eza -l --color=always --git'
+command -v eza  &>/dev/null && alias ls='eza --color=always --icons=auto' && alias ll='eza -l --color=always --icons=auto --git'
 alias dirsize='du -sm ./* | sort -g'
 alias ffs='sudo !!'
 alias update-config='$HOME/src/dotfiles/install.sh --nvim'
 command -v colordiff &>/dev/null && alias diff='colordiff'
+
+if [[ "$OSTYPE" != "darwin"* ]]; then
+    alias xclip='xclip -selection clipboard'
+    alias xpaste='xclip -selection clipboard -o'
+    alias pbcopy='xclip -selection clipboard'
+    alias pbpaste='xclip -selection clipboard -o'
+fi
 
 alias grep='grep --color=auto'
 alias igrep='grep -i --color=auto'
