@@ -3,44 +3,11 @@
 # If not running interactively, don't do anything
 [ -z "$PS1" ] && return
 
+[[ -f /usr/share/blesh/ble.sh ]] && source /usr/share/blesh/ble.sh --noattach
+
 export PATH="$HOME/.local/bin:$HOME/src/dotfiles/scripts:$PATH"
 
-alias vim='nvim'
-command -v eza &>/dev/null && alias tree='eza --tree --icons=auto --color=always' || alias tree='tree -C'
-alias update-config='$HOME/src/dotfiles/install.sh --nvim'
-command -v colordiff &>/dev/null && alias diff='colordiff'
 alias tmux='tmux -2'
-alias ll='ls -l'
-cat() {
-    if [[ "$1" == *.md ]] && command -v glow &>/dev/null; then
-        glow "$@"
-    elif command -v bat &>/dev/null; then
-        bat --paging=never --style=plain "$@"
-    elif command -v batcat &>/dev/null; then
-        batcat --paging=never --style=plain "$@"
-    else
-        command cat "$@"
-    fi
-}
-command -v eza &>/dev/null && alias ls='eza --color=always --icons=auto' && alias ll='eza -l --color=always --icons=auto --git'
-alias dirsize='du -sm ./* | sort -g'
-alias ffs='sudo !!'
-
-if [ "$(uname)" != "Darwin" ]; then
-    alias xclip='xclip -selection clipboard'
-    alias xpaste='xclip -selection clipboard -o'
-    alias pbcopy='xclip -selection clipboard'
-    alias pbpaste='xclip -selection clipboard -o'
-fi
-
-alias grep='grep --color=auto'
-alias igrep='grep -i --color=auto'
-alias rgrep='grep -r --color=auto'
-alias irgrep='grep -ri --color=auto'
-alias rigrep='grep -ri --color=auto'
-
-alias youtube-dl-mp3='youtube-dl --output "%(title)s.%(ext)s" --cookie ~/Downloads/youtube.com_cookies.txt -x --audio-format mp3'
-alias yt-dl-mp3='yt-dlp --output "%(title)s.%(ext)s" --yes-playlist --cookies ~/Downloads/youtube.com_cookies.txt -x --audio-format mp3'
 
 export TERM=xterm-256color
 export HISTCONTROL=ignoredups
@@ -56,6 +23,11 @@ if [ "$TERM" != "dumb" ]; then
     eval "$(dircolors -b)"
     alias ls='ls --color=auto'
 fi
+
+# BASH_SOURCE resolves to this file; walk up bash/ -> dotfiles/
+_dotfiles="$(dirname "$(realpath "${BASH_SOURCE[0]}")")/.."
+source "$_dotfiles/shell/aliases.sh"
+unset _dotfiles
 
 # make less more friendly for non-text input files
 [ -x /usr/bin/lesspipe ] && eval "$(lesspipe)"
@@ -94,3 +66,5 @@ fi
 
 # ── Local overrides (machine-specific, not tracked) ──────────────────────────
 [ -f "$HOME/.bashrc.local" ] && . "$HOME/.bashrc.local"
+
+[[ ${BLE_VERSION-} ]] && ble-attach

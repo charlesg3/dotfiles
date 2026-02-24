@@ -25,6 +25,11 @@ apt_install() {
     fi
 }
 
+# ── ble.sh (bash syntax highlighting + autosuggestions) ──────────────────────
+
+header "ble.sh"
+apt_install blesh
+
 # ── Clipboard ─────────────────────────────────────────────────────────────────
 
 header "Clipboard"
