@@ -23,6 +23,7 @@ compinit
 alias vim='nvim'
 command -v eza &>/dev/null && alias tree='eza --tree --icons=auto --color=always' || alias tree='tree -C'
 alias ll='ls -l'
+unalias cat 2>/dev/null
 cat() {
     if [[ "$1" == *.md ]] && command -v glow &>/dev/null; then
         glow "$@"
