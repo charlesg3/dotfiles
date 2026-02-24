@@ -3,7 +3,9 @@
 # If not running interactively, don't do anything
 [ -z "$PS1" ] && return
 
-[[ -f /usr/share/blesh/ble.sh ]] && source /usr/share/blesh/ble.sh --noattach
+_ble=/usr/share/blesh/ble.sh
+[[ -f "$HOME/.local/share/blesh/ble.sh" ]] && _ble="$HOME/.local/share/blesh/ble.sh"
+[[ -f "$_ble" ]] && source "$_ble" --noattach; unset _ble
 
 export PATH="$HOME/.local/bin:$HOME/src/dotfiles/scripts:$PATH"
 

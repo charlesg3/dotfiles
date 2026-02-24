@@ -28,7 +28,17 @@ apt_install() {
 # ── ble.sh (bash syntax highlighting + autosuggestions) ──────────────────────
 
 header "ble.sh"
-apt_install blesh
+if [ -f "$HOME/.local/share/blesh/ble.sh" ]; then
+    ok "ble.sh"
+else
+    warn "Installing ble.sh..."
+    tmp="$(mktemp -d)"
+    curl -fsSL https://github.com/akinomyoga/ble.sh/releases/download/nightly/ble-nightly.tar.xz \
+        | tar xJf - -C "$tmp"
+    bash "$tmp/ble-nightly/ble.sh" --install "$HOME/.local/share/blesh"
+    rm -rf "$tmp"
+    ok "ble.sh installed"
+fi
 
 # ── Clipboard ─────────────────────────────────────────────────────────────────
 
