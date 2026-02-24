@@ -12,6 +12,7 @@ alias ls='ls --color=auto'
 # %n = username, %m = hostname, %~ = current working directory
 PROMPT='%(?.%F{green}▸%f.%F{red}▸%f)%F{green}%n%F{red}@%F{green}%m%F{white}:%F{blue}%~ %F{yellow}$%f '
 
+[[ "$OSTYPE" == "darwin"* ]] && fpath=(/opt/homebrew/share/zsh/site-functions $fpath)
 autoload -Uz compinit
 compinit
 

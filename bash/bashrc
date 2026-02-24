@@ -69,6 +69,8 @@ PS2='$'
 # bash completion
 if [ -f /etc/bash_completion ]; then
     . /etc/bash_completion
+elif [ "$(uname)" = "Darwin" ] && [ -r "$(brew --prefix 2>/dev/null)/etc/profile.d/bash_completion.sh" ]; then
+    . "$(brew --prefix)/etc/profile.d/bash_completion.sh"
 fi
 
 # ── Local overrides (machine-specific, not tracked) ──────────────────────────
