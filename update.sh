@@ -73,8 +73,9 @@ if command -v brew &>/dev/null; then
         _brew_update "$pkg"
     done
 
-    _brew_update docker "$UPDATE_DOCKER" "--docker"
-    _brew_update vault  "$UPDATE_VAULT"  "--vault"
+    _brew_update docker         "$UPDATE_DOCKER" "--docker"
+    _brew_update docker-buildx  "$UPDATE_DOCKER" "--docker"
+    _brew_update vault          "$UPDATE_VAULT"  "--vault"
     _brew_update node   "$UPDATE_NODE"   "--node"
 fi
 
@@ -125,12 +126,9 @@ if command -v apt-get &>/dev/null; then
         _apt_update "$pkg"
     done
 
-    _apt_update docker-ce "$UPDATE_DOCKER" "--docker"
-    if [[ "$UPDATE_DOCKER" == true ]]; then
-        for pkg in docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin; do
-            _apt_update "$pkg" true
-        done
-    fi
+    for pkg in docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin; do
+        _apt_update "$pkg" "$UPDATE_DOCKER" "--docker"
+    done
 
     # Ubuntu release upgrade check
     if command -v do-release-upgrade &>/dev/null; then

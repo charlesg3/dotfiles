@@ -53,6 +53,41 @@ else
     ok "kitty installed"
 fi
 
+# ── Docker ────────────────────────────────────────────────────────────────────
+
+header "Docker"
+
+if [[ ! -f /etc/apt/sources.list.d/docker.list ]]; then
+    warn "Setting up Docker apt repository..."
+    sudo apt-get install -y ca-certificates curl
+    sudo install -m 0755 -d /etc/apt/keyrings
+    . /etc/os-release
+    sudo curl -fsSL "https://download.docker.com/linux/${ID}/gpg" \
+        -o /etc/apt/keyrings/docker.asc
+    sudo chmod a+r /etc/apt/keyrings/docker.asc
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+https://download.docker.com/linux/${ID} ${VERSION_CODENAME} stable" \
+        | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    sudo apt-get update -q
+    ok "Docker apt repository configured"
+else
+    ok "Docker apt repository"
+fi
+
+apt_install docker-ce
+apt_install docker-ce-cli
+apt_install containerd.io
+apt_install docker-compose-plugin
+apt_install docker-buildx-plugin
+
+if ! groups "$USER" | grep -q docker; then
+    warn "Adding $USER to docker group (re-login required)..."
+    sudo usermod -aG docker "$USER"
+    ok "$USER added to docker group"
+else
+    ok "$USER in docker group"
+fi
+
 # ── Done ──────────────────────────────────────────────────────────────────────
 
 echo -e "\n${BOLD}${GREEN}Done!${RESET}"
