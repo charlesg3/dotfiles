@@ -20,8 +20,8 @@ PROMPT='%(?.%F{green}▸%f.%F{red}▸%f)%F{green}%n%F{red}@%F{green}%m%F{white}:
 autoload -Uz compinit
 compinit
 
-# ${0:A:h:h} resolves symlink of this file, then walks up zsh/ -> dotfiles/
-source "${0:A:h:h}/shell/aliases.sh"
+# ${(%):-%N} resolves to the current sourced file; walk up zsh/ -> dotfiles/
+source "${${(%):-%N}:A:h:h}/shell/aliases.sh"
 
 export PATH="$HOME/.local/bin:$HOME/src/dotfiles/scripts:$PATH"
 
