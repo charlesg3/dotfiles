@@ -40,6 +40,19 @@ APT_PKGS=(jq tree htop ncdu colordiff bat eza xclip zsh-autosuggestions zsh-synt
 _spin()       { printf "  ${DIM}⟳${RESET}  %s..." "$1"; }
 _clear_spin() { printf "\r\033[2K"; }
 
+# Compare two semver strings; returns 0 if $1 > $2
+_semver_gt() {
+    local IFS=.
+    read -ra a <<< "$1"
+    read -ra b <<< "$2"
+    for ((i = 0; i < ${#a[@]} || i < ${#b[@]}; i++)); do
+        local av=${a[i]:-0} bv=${b[i]:-0}
+        (( av > bv )) && return 0
+        (( av < bv )) && return 1
+    done
+    return 1
+}
+
 # ── Homebrew (macOS) ──────────────────────────────────────────────────────────
 
 _brew_update() {
@@ -48,16 +61,24 @@ _brew_update() {
     local version
     version=$(brew list --versions "$pkg" | awk '{print $NF}')
     _spin "$pkg"
-    if brew outdated --formula "$pkg" 2>/dev/null | grep -q .; then
+    # --verbose gives "pkg (installed) < candidate"; without it only the name is printed
+    local outdated
+    outdated=$(brew outdated --verbose --formula "$pkg" 2>/dev/null)
+    if [[ -n "$outdated" ]]; then
+        local candidate
+        candidate=$(echo "$outdated" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)*' | tail -1)
+        # Guard: skip if candidate isn't actually newer (e.g. tap version mismatch)
+        if [[ -z "$candidate" ]] || ! _semver_gt "$candidate" "$version"; then
+            _clear_spin; ok "$pkg ${DIM}$version${RESET}"
+            return
+        fi
         if [[ "$do_upgrade" == true ]]; then
             brew upgrade --quiet "$pkg" 2>/dev/null || true
             local new_version
             new_version=$(brew list --versions "$pkg" | awk '{print $NF}')
             _clear_spin; ok "$pkg ${GREEN}$new_version${RESET} ${DIM}(updated from $version)${RESET}"
         else
-            local new_version
-            new_version=$(brew outdated --formula "$pkg" 2>/dev/null | awk '{print $NF}' | tr -d ')')
-            _clear_spin; warn "$pkg: ${YELLOW}$version → $new_version${RESET} available — re-run with $hint to upgrade"
+            _clear_spin; warn "$pkg: ${YELLOW}$version → $candidate${RESET} available — re-run with $hint to upgrade"
         fi
     else
         _clear_spin; ok "$pkg ${DIM}$version${RESET}"
