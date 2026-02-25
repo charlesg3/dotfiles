@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# hi: highlight regex matches in stdin without filtering lines.
+# Usage: hi PATTERN
+# PATTERN supports | for alternation (e.g. hi "error|warning")
+
+if [[ $# -lt 1 ]]; then
+    echo "usage: hi PATTERN" >&2
+    exit 1
+fi
+
+grep --color=always -E "${1}|$"

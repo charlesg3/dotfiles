@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+# hil: highlight matching lines (yellow background) and underline+red the match.
+# Usage: hil PATTERN
+# PATTERN supports | for alternation (e.g. hil "error|warning")
+
+import sys
+import re
+
+if len(sys.argv) < 2:
+    sys.exit("usage: hil PATTERN")
+
+try:
+    regex = re.compile(sys.argv[1])
+except re.error as e:
+    sys.exit(f"hil: invalid regex: {e}")
+
+RESET         = '\033[0m'
+LINE_START    = '\033[43;30m'  # yellow bg + black fg
+MATCH_ON      = '\033[1;31m'   # bold + red (bg carries through from LINE_START)
+MATCH_OFF     = '\033[22;30m'  # bold off + restore black fg
+
+for line in sys.stdin:
+    line = line.rstrip('\n')
+    if regex.search(line):
+        highlighted = regex.sub(
+            lambda m: MATCH_ON + m.group() + MATCH_OFF,
+            line
+        )
+        print(LINE_START + highlighted + RESET)
+    else:
+        print(line)
