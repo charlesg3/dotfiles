@@ -46,6 +46,11 @@ brew_install tree
 brew_install watch
 brew_install coreutils
 brew_install git-lfs
+brew_install docker-buildx
+mkdir -p "$HOME/.docker/cli-plugins"
+ln -sfn "$(brew --prefix)/opt/docker-buildx/bin/docker-buildx" \
+    "$HOME/.docker/cli-plugins/docker-buildx"
+ok "docker-buildx cli plugin linked"
 
 # ── GitHub / GitLab ───────────────────────────────────────────────────────────
 
