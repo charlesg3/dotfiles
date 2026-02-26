@@ -45,10 +45,14 @@ _semver_gt() {
     local IFS=.
     read -ra a <<< "$1"
     read -ra b <<< "$2"
-    for ((i = 0; i < ${#a[@]} || i < ${#b[@]}; i++)); do
+    local i=0 max
+    max=$(( ${#a[@]} > ${#b[@]} ? ${#a[@]} : ${#b[@]} ))
+    while [ "$i" -lt "$max" ]; do
         local av=${a[i]:-0} bv=${b[i]:-0}
-        (( av > bv )) && return 0
-        (( av < bv )) && return 1
+        if [ "$av" -gt "$bv" ]; then return 0
+        elif [ "$av" -lt "$bv" ]; then return 1
+        fi
+        i=$(( i + 1 ))
     done
     return 1
 }
@@ -63,10 +67,10 @@ _brew_update() {
     _spin "$pkg"
     # --verbose gives "pkg (installed) < candidate"; without it only the name is printed
     local outdated
-    outdated=$(brew outdated --verbose --formula "$pkg" 2>/dev/null)
+    outdated=$(brew outdated --verbose --formula "$pkg" 2>/dev/null) || true
     if [[ -n "$outdated" ]]; then
         local candidate
-        candidate=$(echo "$outdated" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)*' | tail -1)
+        candidate=$(echo "$outdated" | awk '{for(i=1;i<=NF;i++) if($i~/^[0-9]+\.[0-9]/) print $i}' | tail -1)
         # Guard: skip if candidate isn't actually newer (e.g. tap version mismatch)
         if [[ -z "$candidate" ]] || ! _semver_gt "$candidate" "$version"; then
             _clear_spin; ok "$pkg ${DIM}$version${RESET}"
