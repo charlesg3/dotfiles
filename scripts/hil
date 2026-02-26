@@ -10,7 +10,7 @@ if len(sys.argv) < 2:
     sys.exit("usage: hil PATTERN")
 
 try:
-    regex = re.compile(sys.argv[1])
+    regex = re.compile(sys.argv[1], re.IGNORECASE)
 except re.error as e:
     sys.exit(f"hil: invalid regex: {e}")
 

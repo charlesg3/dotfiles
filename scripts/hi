@@ -8,4 +8,4 @@ if [[ $# -lt 1 ]]; then
     exit 1
 fi
 
-grep --color=always -E "${1}|$"
+grep --color=always -iE "${1}|$"
