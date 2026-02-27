@@ -61,19 +61,8 @@ brew_install glab
 # ── Apps ──────────────────────────────────────────────────────────────────────
 
 header "Apps"
-cask_install iterm2
 cask_install kitty
 cask_install stats
-
-# ── iTerm2 ────────────────────────────────────────────────────────────────────
-
-header "iTerm2"
-ITERM_PROFILES="$HOME/Library/Application Support/iTerm2/DynamicProfiles"
-mkdir -p "$ITERM_PROFILES"
-ln -sf "$DOTFILES/iterm2/Dotfiles.json" "$ITERM_PROFILES/Dotfiles.json"
-ok "Dynamic profile linked"
-defaults write com.googlecode.iterm2 "Default Bookmark Guid" "com.charlesg3.dotfiles"
-ok "Default profile set to charlesg3"
 
 # ── Stats ─────────────────────────────────────────────────────────────────────
 
