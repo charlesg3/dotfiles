@@ -76,3 +76,13 @@ fi
 # Must come after ble-attach since both use the DEBUG trap
 [ -n "$KITTY_INSTALLATION_DIR" ] && \
     source "$KITTY_INSTALLATION_DIR/shell-integration/bash/kitty.bash"
+
+# ── Long-command bell (shows green dot in kitty tab) ─────────────────────────
+_long_cmd_start=
+_long_cmd_check() {
+    if [[ -n "$_long_cmd_start" ]] && (( SECONDS - _long_cmd_start >= 10 )); then
+        printf '\a'
+    fi
+    _long_cmd_start=$SECONDS
+}
+PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND; }_long_cmd_check"

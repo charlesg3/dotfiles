@@ -41,5 +41,15 @@ unset -f _source_if
 [[ -n "$KITTY_INSTALLATION_DIR" ]] && \
     source "$KITTY_INSTALLATION_DIR/shell-integration/zsh/kitty.zsh"
 
+# ── Long-command bell (shows green dot in kitty tab) ─────────────────────────
+_long_cmd_start=0
+_long_cmd_preexec() { _long_cmd_start=$SECONDS }
+_long_cmd_precmd() {
+    (( _long_cmd_start > 0 && SECONDS - _long_cmd_start >= 10 )) && printf '\a'
+    _long_cmd_start=0
+}
+preexec_functions+=(_long_cmd_preexec)
+precmd_functions+=(_long_cmd_precmd)
+
 # ── Local overrides (machine-specific, not tracked) ──────────────────────────
 [ -f "$HOME/.zshrc.local" ] && source "$HOME/.zshrc.local"
