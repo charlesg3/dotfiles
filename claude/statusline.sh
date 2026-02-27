@@ -94,13 +94,12 @@ RP="${BAR_PLAIN}  ${PCT}%   💰 ${COST_FMT}   ⏱️ ${MINS}m ${SECS}s"
 
 # ── Padding (python for correct emoji/wide-char width) ───────────────────────
 
-# Try multiple sources for terminal width; default 120 if nothing works
+# Terminal width: env var → tput → /dev/tty (most reliable in subprocesses)
 COLS=${COLUMNS:-}
 [ -z "$COLS" ] && COLS=$(tput cols 2>/dev/null)
-[[ -z "$COLS" || "$COLS" -le 0 ]] && COLS=120
 
-read -r LW RW < <(python3 - "$LP" "$RP" <<'PYEOF'
-import sys, unicodedata
+read -r LW RW COLS_TTY < <(python3 - "$LP" "$RP" <<'PYEOF'
+import sys, unicodedata, os
 def vlen(s):
     width = 0
     i = 0
@@ -118,10 +117,20 @@ def vlen(s):
             width += 1
         i += 1
     return width
-print(vlen(sys.argv[1]), vlen(sys.argv[2]))
+cols = 0
+try:
+    fd = os.open('/dev/tty', os.O_RDONLY)
+    cols = os.get_terminal_size(fd).columns
+    os.close(fd)
+except Exception:
+    pass
+print(vlen(sys.argv[1]), vlen(sys.argv[2]), cols)
 PYEOF
 )
 LW=${LW:-0}; RW=${RW:-0}
+# Prefer /dev/tty width (works in subprocesses), then env/tput, then 120
+[[ -z "$COLS" || "$COLS" -le 0 ]] && COLS=${COLS_TTY:-0}
+[[ -z "$COLS" || "$COLS" -le 0 ]] && COLS=120
 PAD=$(( COLS - LW - RW ))
 [ "$PAD" -lt 1 ] && PAD=1
 
