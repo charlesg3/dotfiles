@@ -71,7 +71,7 @@ for bundle_path in "$NVIM_DIR/bundle"/*/; do
     before_sha="$(git -C "$bundle_path" rev-parse --short HEAD 2>/dev/null || echo "")"
 
     _spin "$name"
-    if git -C "$NVIM_DIR" submodule update --init --remote --depth=1 -- "bundle/$name" &>/dev/null; then
+    if git -C "$NVIM_DIR" submodule update --init --remote --depth=1 --force -- "bundle/$name" &>/dev/null; then
         after_sha="$(git -C "$bundle_path" rev-parse --short HEAD 2>/dev/null || echo "?")"
         _clear_spin
         if [[ -z "$before_sha" ]]; then
@@ -95,14 +95,14 @@ if [[ ${#updated_plugins[@]} -gt 0 ]]; then
     git -C "$NVIM_DIR" add bundle/
     git -C "$NVIM_DIR" commit -m "chore: update plugins ($(date +%Y-%m-%d))
 
-Updated: $plugin_list" 2>/dev/null || true
+Updated: $plugin_list" &>/dev/null || true
     git -C "$DOTFILES" add nvim
-    git -C "$DOTFILES" commit -m "chore: bump nvim ($(date +%Y-%m-%d))" 2>/dev/null || true
+    git -C "$DOTFILES" commit -m "chore: bump nvim ($(date +%Y-%m-%d))" &>/dev/null || true
     _clear_spin; ok "committed ${#updated_plugins[@]} plugin update(s)"
 elif [[ "$nvim_before" != "$nvim_after" ]]; then
     _spin "committing nvim update"
     git -C "$DOTFILES" add nvim
-    git -C "$DOTFILES" commit -m "chore: bump nvim ($(date +%Y-%m-%d))" 2>/dev/null || true
+    git -C "$DOTFILES" commit -m "chore: bump nvim ($(date +%Y-%m-%d))" &>/dev/null || true
     _clear_spin; ok "committed nvim update"
 fi
 

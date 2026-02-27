@@ -273,7 +273,7 @@ if [ -d "$DOTFILES/nvim" ]; then
     if [[ -n "$nvim_before" && "$nvim_before" != "$nvim_after" ]]; then
         ok "nvim config ${DIM}$nvim_after${RESET} ${DIM}(was $nvim_before)${RESET}"
         git -C "$DOTFILES" add nvim
-        git -C "$DOTFILES" commit -m "chore: bump nvim ($(date +%Y-%m-%d))" 2>/dev/null || true
+        git -C "$DOTFILES" commit -m "chore: bump nvim ($(date +%Y-%m-%d))" &>/dev/null || true
     else
         ok "nvim config ${DIM}$nvim_after${RESET}"
     fi
