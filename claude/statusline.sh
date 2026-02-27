@@ -7,12 +7,14 @@ input=$(cat)
 
 SESSION_ID=$(echo "$input" | jq -r '.session_id // ""')
 DIR=$(echo "$input"        | jq -r '.workspace.current_dir // ""')
+# Debug: dump context_window to inspect available fields
+echo "$input" | jq -c '.context_window // {}' > "/tmp/claude-sl-ctx-${SESSION_ID}" 2>/dev/null
 # Use remaining_percentage to match Claude's "Context left" display
 PCT=$(echo "$input" | jq -r '(100 - (.context_window.remaining_percentage // 0)) | floor')
 COST=$(echo "$input"       | jq -r '.cost.total_cost_usd // 0')
 DURA=$(echo "$input"       | jq -r '.cost.total_duration_ms // 0')
 
-LIME='\033[92m'; YELLOW='\033[33m'; RED='\033[31m'; GREEN='\033[32m'; DIM='\033[2m'; RESET='\033[0m'
+LIME='\033[38;5;150m'; YELLOW='\033[33m'; RED='\033[31m'; GREEN='\033[32m'; PURPLE='\033[38;5;183m'; DIM='\033[2m'; RESET='\033[0m'
 
 # ── Spinner / ready ──────────────────────────────────────────────────────────
 # States: ● ready → ↻ (first 1s of streaming) → braille spinner
@@ -83,7 +85,7 @@ IFS='|' read -r BRANCH STAGED MODIFIED < "$CACHE"
 L="${STATE}  📁 ${DIR##*/}"
 LP="${STATE_PLAIN}  📁 ${DIR##*/}"
 if [ -n "$BRANCH" ]; then
-    L="${L}   🌿 ${BRANCH}";  LP="${LP}   🌿 ${BRANCH}"
+    L="${L}   🌿 ${PURPLE}${BRANCH}${RESET}";  LP="${LP}   🌿 ${BRANCH}"
     if [ "${STAGED:-0}" -gt 0 ]; then
         L="${L}  ${GREEN}+${STAGED}${RESET}"; LP="${LP}  +${STAGED}"
     fi
