@@ -19,16 +19,27 @@ GREEN='\033[32m'; YELLOW='\033[33m'; RED='\033[31m'; DIM='\033[2m'; RESET='\033[
 
 SPINNERS=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
 if [ -n "$SESSION_ID" ] && [ -f "/tmp/claude-start-${SESSION_ID}" ]; then
+    WAIT_FILE="/tmp/claude-waiting-${SESSION_ID}"
     SPIN_FILE="/tmp/claude-sl-spin-${SESSION_ID}"
-    # Advance frame at most once per second; store "frame|last_sec"
     NOW=$(date +%s)
-    IFS='|' read -r FRAME LAST_SEC < <(cat "$SPIN_FILE" 2>/dev/null || echo "0|0")
-    if [ "$NOW" -gt "${LAST_SEC:-0}" ]; then
-        FRAME=$(( (FRAME + 1) % 10 ))
-        printf '%s|%s' "$FRAME" "$NOW" > "$SPIN_FILE"
+
+    if [ ! -f "$WAIT_FILE" ]; then
+        # First streaming token — begin 1s circular-arrow phase
+        printf '%s' "$NOW" > "$WAIT_FILE"
+        STATE="↻"; STATE_PLAIN="↻"
+    elif [ $(( NOW - $(cat "$WAIT_FILE") )) -lt 1 ]; then
+        # Still within 1s of first token — hold on circular arrow
+        STATE="↻"; STATE_PLAIN="↻"
+    else
+        # 1s+ of streaming — advance braille spinner at most once per second
+        IFS='|' read -r FRAME LAST_SEC < <(cat "$SPIN_FILE" 2>/dev/null || echo "0|0")
+        if [ "$NOW" -gt "${LAST_SEC:-0}" ]; then
+            FRAME=$(( (FRAME + 1) % 10 ))
+            printf '%s|%s' "$FRAME" "$NOW" > "$SPIN_FILE"
+        fi
+        STATE="${SPINNERS[$FRAME]}"
+        STATE_PLAIN="${SPINNERS[$FRAME]}"
     fi
-    STATE="${SPINNERS[$FRAME]}"
-    STATE_PLAIN="${SPINNERS[$FRAME]}"
 else
     if [ -n "$SESSION_ID" ] && [ -f "/tmp/claude-last-time-${SESSION_ID}" ]; then
         LAST=" $(cat "/tmp/claude-last-time-${SESSION_ID}")"

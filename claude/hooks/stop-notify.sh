@@ -10,7 +10,7 @@ if [ -f "$start_file" ]; then
   start=$(cat "$start_file")
   now=$(date +%s)
   elapsed=$((now - start))
-  rm -f "$start_file"
+  rm -f "$start_file" "/tmp/claude-waiting-${SESSION_ID}" "/tmp/claude-sl-spin-${SESSION_ID}"
 fi
 
 # Save last response time for statusline
