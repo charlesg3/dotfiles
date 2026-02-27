@@ -71,7 +71,7 @@ for bundle_path in "$NVIM_DIR/bundle"/*/; do
     before_sha="$(git -C "$bundle_path" rev-parse --short HEAD 2>/dev/null || echo "")"
 
     _spin "$name"
-    if git -C "$NVIM_DIR" submodule update --init --remote --depth=1 -- "bundle/$name" 2>/dev/null; then
+    if git -C "$NVIM_DIR" submodule update --init --remote --depth=1 -- "bundle/$name" &>/dev/null; then
         after_sha="$(git -C "$bundle_path" rev-parse --short HEAD 2>/dev/null || echo "?")"
         _clear_spin
         if [[ -z "$before_sha" ]]; then

@@ -56,40 +56,53 @@ _semver_gt() {
 
 # ── Homebrew (macOS) ──────────────────────────────────────────────────────────
 
+# Populated once by _brew_preload; keyed by package name
+declare -A _BREW_VER        # pkg → installed version
+declare -A _BREW_CANDIDATE  # pkg → available upgrade version (absent if up to date)
+
+_brew_preload() {
+    # All installed versions in one call
+    while read -r pkg ver; do
+        _BREW_VER["$pkg"]="$ver"
+    done < <(brew list --versions 2>/dev/null | awk '{print $1, $NF}')
+
+    # All outdated packages in one call; format: "pkg (installed) < candidate"
+    while IFS= read -r line; do
+        local pkg candidate
+        pkg=$(awk '{print $1}' <<< "$line")
+        candidate=$(awk '{for(i=1;i<=NF;i++) if($i~/^[0-9]+\.[0-9]/) print $i}' <<< "$line" | tail -1)
+        [[ -n "$pkg" && -n "$candidate" ]] && _BREW_CANDIDATE["$pkg"]="$candidate"
+    done < <(brew outdated --verbose 2>/dev/null)
+}
+
 _brew_update() {
     local pkg="$1" do_upgrade="${2:-true}" hint="${3:-}"
-    brew list --formula "$pkg" &>/dev/null || return 0
-    local version
-    version=$(brew list --versions "$pkg" | awk '{print $NF}')
-    _spin "$pkg"
-    # --verbose gives "pkg (installed) < candidate"; without it only the name is printed
-    local outdated
-    outdated=$(brew outdated --verbose --formula "$pkg" 2>/dev/null) || true
-    if [[ -n "$outdated" ]]; then
-        local candidate
-        candidate=$(echo "$outdated" | awk '{for(i=1;i<=NF;i++) if($i~/^[0-9]+\.[0-9]/) print $i}' | tail -1)
-        # Guard: skip if candidate isn't actually newer (e.g. tap version mismatch)
-        if [[ -z "$candidate" ]] || ! _semver_gt "$candidate" "$version"; then
-            _clear_spin; ok "$pkg ${DIM}$version${RESET}"
-            return
-        fi
+    local version="${_BREW_VER[$pkg]:-}"
+    [[ -n "$version" ]] || return 0  # not installed
+
+    local candidate="${_BREW_CANDIDATE[$pkg]:-}"
+    # Guard: skip if candidate isn't actually newer (e.g. tap version mismatch)
+    if [[ -n "$candidate" ]] && _semver_gt "$candidate" "$version"; then
         if [[ "$do_upgrade" == true ]]; then
+            _spin "$pkg"
             brew upgrade --quiet "$pkg" 2>/dev/null || true
             local new_version
             new_version=$(brew list --versions "$pkg" | awk '{print $NF}')
             _clear_spin; ok "$pkg ${GREEN}$new_version${RESET} ${DIM}(updated from $version)${RESET}"
         else
-            _clear_spin; warn "$pkg: ${YELLOW}$version → $candidate${RESET} available — re-run with $hint to upgrade"
+            warn "$pkg: ${YELLOW}$version → $candidate${RESET} available — re-run with $hint to upgrade"
         fi
     else
-        _clear_spin; ok "$pkg ${DIM}$version${RESET}"
+        ok "$pkg ${DIM}$version${RESET}"
     fi
 }
 
 if command -v brew &>/dev/null; then
     header "Homebrew"
-    warn "Fetching updates..."
+    _spin "fetching updates"
     brew update -q
+    _brew_preload
+    _clear_spin
 
     for pkg in "${BREW_PKGS[@]}"; do
         _brew_update "$pkg"
@@ -120,29 +133,57 @@ fi
 
 # ── apt (Linux) ───────────────────────────────────────────────────────────────
 
+# Populated once by _apt_preload; keyed by package name
+declare -A _APT_INSTALLED   # pkg → installed version
+declare -A _APT_CANDIDATE   # pkg → candidate version
+
+_apt_preload() {
+    local pkgs=("$@")
+
+    # Installed versions in one dpkg-query call
+    while IFS=$'\t' read -r pkg ver; do
+        _APT_INSTALLED["$pkg"]="$ver"
+    done < <(dpkg-query -W -f='${Package}\t${Version}\n' "${pkgs[@]}" 2>/dev/null)
+
+    # Candidate versions in one apt-cache policy call
+    # Output per package: "pkgname:\n  Installed: X\n  Candidate: Y\n  ..."
+    local current_pkg=""
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^([a-zA-Z0-9.+_-]+):$ ]]; then
+            current_pkg="${BASH_REMATCH[1]}"
+        elif [[ -n "$current_pkg" && "$line" =~ Candidate:[[:space:]]+(.+) ]]; then
+            _APT_CANDIDATE["$current_pkg"]="${BASH_REMATCH[1]}"
+        fi
+    done < <(apt-cache policy "${pkgs[@]}" 2>/dev/null)
+}
+
 _apt_update() {
     local pkg="$1" do_upgrade="${2:-true}" hint="${3:-}"
-    dpkg -s "$pkg" &>/dev/null || return 0
-    local installed candidate
-    installed=$(dpkg -s "$pkg" | awk '/^Version:/ {print $2}')
-    candidate=$(apt-cache policy "$pkg" 2>/dev/null | awk '/Candidate:/ {print $2}')
-    _spin "$pkg"
+    local installed="${_APT_INSTALLED[$pkg]:-}"
+    [[ -n "$installed" ]] || return 0  # not installed
+
+    local candidate="${_APT_CANDIDATE[$pkg]:-}"
     if [[ -n "$candidate" && "$installed" != "$candidate" ]]; then
         if [[ "$do_upgrade" == true ]]; then
+            _spin "$pkg"
             sudo apt-get install -y -qq --only-upgrade "$pkg" >/dev/null 2>&1 || true
             _clear_spin; ok "$pkg ${GREEN}$candidate${RESET} ${DIM}(updated from $installed)${RESET}"
         else
-            _clear_spin; warn "$pkg: ${YELLOW}$installed → $candidate${RESET} available — re-run with $hint to upgrade"
+            warn "$pkg: ${YELLOW}$installed → $candidate${RESET} available — re-run with $hint to upgrade"
         fi
     else
-        _clear_spin; ok "$pkg ${DIM}$installed${RESET}"
+        ok "$pkg ${DIM}$installed${RESET}"
     fi
 }
 
 if command -v apt-get &>/dev/null; then
     header "apt"
-    warn "Fetching updates..."
+    _spin "fetching updates"
     sudo apt-get update -qq
+    _apt_preload "${APT_PKGS[@]}" \
+        docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin \
+        vault
+    _clear_spin
 
     for pkg in "${APT_PKGS[@]}"; do
         _apt_update "$pkg"
@@ -165,10 +206,8 @@ if command -v apt-get &>/dev/null; then
         fi
     fi
 
-    # Vault: check dpkg first, fall through to binary check below
-    if ! dpkg -s vault &>/dev/null; then
-        : # handled in the binary vault section below
-    else
+    # Vault: if installed via dpkg handle here, else fall through to binary section below
+    if [[ -n "${_APT_INSTALLED[vault]:-}" ]]; then
         _apt_update vault "$UPDATE_VAULT" "--vault"
     fi
 fi
