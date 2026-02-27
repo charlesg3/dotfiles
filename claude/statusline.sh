@@ -8,33 +8,20 @@ input=$(cat)
 SESSION_ID=$(echo "$input" | jq -r '.session_id // ""')
 DIR=$(echo "$input"        | jq -r '.workspace.current_dir // ""')
 # Use remaining_percentage to match Claude's "Context left" display
-PCT=$(echo "$input" | jq -r '(100 - (.context_window.remaining_percentage // 0)) | floor')
+PCT=$(echo "$input" | jq -r '(100 - (.context_window.remaining_percentage // 100)) | floor')
 COST=$(echo "$input"       | jq -r '.cost.total_cost_usd // 0')
 DURA=$(echo "$input"       | jq -r '.cost.total_duration_ms // 0')
 
-LIME='\033[38;5;150m'; YELLOW='\033[33m'; RED='\033[31m'; GREEN='\033[32m'; PURPLE='\033[38;5;147m'; DIM='\033[2m'; RESET='\033[0m'
+# shellcheck source=../shell/colors.sh
+source "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../shell/colors.sh"
+LIME="$ANSI_OK"; GREEN="$ANSI_OK"; YELLOW="$ANSI_WARN"; RED="$ANSI_ERR"
+BLUE="$(_ansi_fg "$COLOR_INFO")"; PURPLE="$(_ansi_fg "$COLOR_TAG")"
+DIM="$ANSI_DIM"; RESET="$ANSI_RESET"
 
-# ── Spinner / ready ──────────────────────────────────────────────────────────
-# States: ● ready → ↻ working (first call) → ⠋ working (subsequent calls, 1fps)
+# ── Working / ready ──────────────────────────────────────────────────────────
 
-SPINNERS=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
 if [ -n "$SESSION_ID" ] && [ -f "/tmp/claude-start-${SESSION_ID}" ]; then
-    SPIN_FILE="/tmp/claude-sl-spin-${SESSION_ID}"
-    NOW=$(date +%s)
-
-    if [ ! -f "$SPIN_FILE" ]; then
-        # First call — show ↻ and initialise spinner state
-        printf '0|%s' "$NOW" > "$SPIN_FILE"
-        STATE="↻ working"; STATE_PLAIN="↻ working"
-    else
-        # Subsequent calls — advance braille spinner at most once per second
-        IFS='|' read -r FRAME LAST_SEC < "$SPIN_FILE"
-        if [ "$NOW" -gt "${LAST_SEC:-0}" ]; then
-            FRAME=$(( (FRAME + 1) % 10 ))
-            printf '%s|%s' "$FRAME" "$NOW" > "$SPIN_FILE"
-        fi
-        STATE="${SPINNERS[$FRAME]} working"; STATE_PLAIN="${SPINNERS[$FRAME]} working"
-    fi
+    STATE="${BLUE}↻ working${RESET}"; STATE_PLAIN="↻ working"
 else
     if [ -n "$SESSION_ID" ] && [ -f "/tmp/claude-last-time-${SESSION_ID}" ]; then
         LAST=" $(cat "/tmp/claude-last-time-${SESSION_ID}")"
@@ -94,11 +81,7 @@ RP="${BAR_PLAIN}  ${PCT}%   💰 ${COST_FMT}   ⏱️ ${MINS}m ${SECS}s"
 
 # ── Padding (python for correct emoji/wide-char width) ───────────────────────
 
-# Terminal width: env var → tput → /dev/tty (most reliable in subprocesses)
-COLS=${COLUMNS:-}
-[ -z "$COLS" ] && COLS=$(tput cols 2>/dev/null)
-
-read -r LW RW COLS_TTY < <(python3 - "$LP" "$RP" <<'PYEOF'
+read -r LW RW COLS < <(python3 - "$LP" "$RP" <<'PYEOF'
 import sys, unicodedata, os
 def vlen(s):
     width = 0
@@ -117,7 +100,7 @@ def vlen(s):
             width += 1
         i += 1
     return width
-cols = 0
+cols = 120
 try:
     fd = os.open('/dev/tty', os.O_RDONLY)
     cols = os.get_terminal_size(fd).columns
@@ -127,11 +110,8 @@ except Exception:
 print(vlen(sys.argv[1]), vlen(sys.argv[2]), cols)
 PYEOF
 )
-LW=${LW:-0}; RW=${RW:-0}
-# Prefer /dev/tty width (works in subprocesses), then env/tput, then 120
-[[ -z "$COLS" || "$COLS" -le 0 ]] && COLS=${COLS_TTY:-0}
-[[ -z "$COLS" || "$COLS" -le 0 ]] && COLS=120
-PAD=$(( COLS - LW - RW ))
+LW=${LW:-0}; RW=${RW:-0}; COLS=${COLS:-120}
+PAD=$(( COLS - LW - RW - 4 ))
 [ "$PAD" -lt 1 ] && PAD=1
 
 # ── Output ────────────────────────────────────────────────────────────────────
