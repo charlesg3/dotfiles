@@ -20,8 +20,13 @@ GREEN='\033[32m'; YELLOW='\033[33m'; RED='\033[31m'; DIM='\033[2m'; RESET='\033[
 SPINNERS=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
 if [ -n "$SESSION_ID" ] && [ -f "/tmp/claude-start-${SESSION_ID}" ]; then
     SPIN_FILE="/tmp/claude-sl-spin-${SESSION_ID}"
-    FRAME=$(( ($(cat "$SPIN_FILE" 2>/dev/null || echo 0) + 1) % 10 ))
-    printf '%s' "$FRAME" > "$SPIN_FILE"
+    # Advance frame at most once per second; store "frame|last_sec"
+    NOW=$(date +%s)
+    IFS='|' read -r FRAME LAST_SEC < <(cat "$SPIN_FILE" 2>/dev/null || echo "0|0")
+    if [ "$NOW" -gt "${LAST_SEC:-0}" ]; then
+        FRAME=$(( (FRAME + 1) % 10 ))
+        printf '%s|%s' "$FRAME" "$NOW" > "$SPIN_FILE"
+    fi
     STATE="${SPINNERS[$FRAME]}"
     STATE_PLAIN="${SPINNERS[$FRAME]}"
 else
@@ -85,10 +90,22 @@ COLS=$(tput cols 2>/dev/null || echo 80)
 read -r LW RW < <(python3 - "$LP" "$RP" <<'PYEOF'
 import sys, unicodedata
 def vlen(s):
-    return sum(
-        2 if unicodedata.east_asian_width(c) in ('W', 'F') else
-        0 if unicodedata.category(c) in ('Mn', 'Me', 'Cf') else 1
-        for c in s)
+    width = 0
+    i = 0
+    while i < len(s):
+        c = s[i]
+        # U+FE0F (variation selector-16) forces emoji presentation (2-wide); skip it
+        next_vs16 = (i + 1 < len(s) and s[i+1] == '\uFE0F')
+        cat = unicodedata.category(c)
+        ew  = unicodedata.east_asian_width(c)
+        if cat in ('Mn', 'Me', 'Cf'):
+            pass  # combining/format: zero width
+        elif ew in ('W', 'F') or next_vs16:
+            width += 2
+        else:
+            width += 1
+        i += 1
+    return width
 print(vlen(sys.argv[1]), vlen(sys.argv[2]))
 PYEOF
 )
@@ -97,4 +114,4 @@ PAD=$(( COLS - LW - RW ))
 
 # ── Output ────────────────────────────────────────────────────────────────────
 
-printf '%b%*s%b\n' "$L" "$PAD" "" "$R"
+printf '%b%*s%b' "$L" "$PAD" "" "$R"
