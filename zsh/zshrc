@@ -12,21 +12,25 @@ else
     alias ls='ls --color=auto'
 fi
 
-# Custom prompt
-# Colors: green=32, red=31, white=37, blue=34, yellow=33
-# %n = username, %m = hostname, %~ = current working directory
-PROMPT='%(?.%F{green}▸%f.%F{red}▸%f)%F{green}%n%F{red}@%F{green}%m%F{white}:%F{blue}%~ %F{yellow}$%f '
+# ${(%):-%N} resolves to the current sourced file; walk up zsh/ -> dotfiles/
+source "${${(%):-%N}:A:h:h}/shell/colors.sh"
+source "${${(%):-%N}:A:h:h}/shell/aliases.sh"
 
 [[ "$OSTYPE" == "darwin"* ]] && fpath=(/opt/homebrew/share/zsh/site-functions $fpath)
 autoload -Uz compinit
 compinit
 
-# ${(%):-%N} resolves to the current sourced file; walk up zsh/ -> dotfiles/
-source "${${(%):-%N}:A:h:h}/shell/aliases.sh"
+# Prompt (colors from shell/colors.sh → ZSH_PROMPT_* variables)
+# %n = username, %m = hostname, %~ = current working directory
+setopt PROMPT_SUBST
+PROMPT='%(?.${ZSH_PROMPT_OK}.${ZSH_PROMPT_ERR})▸${ZSH_PROMPT_RESET}${ZSH_PROMPT_USER}%n${ZSH_PROMPT_SEP}@${ZSH_PROMPT_HOST}%m${ZSH_PROMPT_FG}:${ZSH_PROMPT_DIR}%~ ${ZSH_PROMPT_DOLLAR}\$${ZSH_PROMPT_RESET} '
 
 export PATH="$HOME/.local/bin:$HOME/src/dotfiles/scripts:$PATH"
 
 test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh" || true
+
+# zsh-autosuggestions: use lime green for history match suggestions
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=${PANDA_LIME}"
 
 # zsh plugins (must be sourced after compinit; syntax-highlighting must be last)
 _source_if() { [ -f "$1" ] && source "$1"; }

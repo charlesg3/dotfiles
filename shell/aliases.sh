@@ -11,7 +11,7 @@ command -v colordiff &>/dev/null && alias diff='colordiff'
 unalias cat 2>/dev/null
 cat() {
     if [[ "$1" == *.md ]] && command -v glow &>/dev/null; then
-        glow "$@"
+        glow --style ~/src/dotfiles/shell/glamour.json --width "${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}" "$@" | sed 's/[[:space:]]*$//'
     elif command -v bat &>/dev/null; then
         bat --paging=never --style=plain "$@"
     elif command -v batcat &>/dev/null; then
@@ -31,6 +31,8 @@ if [ "$(uname)" != "Darwin" ]; then
     alias pbcopy='xclip -selection clipboard'
     alias pbpaste='xclip -selection clipboard -o'
 fi
+
+alias kitty-reload='kill -SIGUSR1 $(pgrep -x kitty)'
 
 alias grep='grep --color=auto'
 alias igrep='grep -i --color=auto'

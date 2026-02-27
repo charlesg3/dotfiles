@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 # Shared utilities sourced by install scripts.
 
-BOLD='\033[1m'
-GREEN='\033[0;32m'
-CYAN='\033[0;36m'
-YELLOW='\033[0;33m'
-RED='\033[0;31m'
-DIM='\033[2m'
-RESET='\033[0m'
+source "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/shell/colors.sh"
+
+BOLD="$ANSI_BOLD"
+GREEN="$ANSI_OK"      # ✓ success  → Panda cyan
+CYAN="$ANSI_HEADER"   # headers    → Panda pink
+YELLOW="$ANSI_WARN"   # ~ warning  → Panda orange
+RED="$ANSI_ERR"       # ✗ error    → Panda hot pink
+DIM="$ANSI_DIM"
+RESET="$ANSI_RESET"
 
 ok()          { echo -e "  ${GREEN}✓${RESET} $*"; }
-updated()     { echo -e "  ${CYAN}↑${RESET} $*"; }
+updated()     { echo -e "  ${ANSI_UPDATED}↑${RESET} $*"; }
 warn()        { echo -e "  ${YELLOW}~${RESET} $*"; }
 err()         { echo -e "  ${RED}✗${RESET} $*"; }
 header()      { echo -e "\n${BOLD}${CYAN}${*}${RESET}"; }

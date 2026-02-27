@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# Panda Syntax color test — exercises all named and semantic colors.
+# Run from any shell after sourcing zshrc/bashrc, or directly.
+
+_dotfiles="$(dirname "$(realpath "${BASH_SOURCE[0]}")")/.."
+source "$_dotfiles/shell/colors.sh"
+
+_swatch() {
+    # Print a colored block + label: _swatch "#RRGGBB" "LABEL"
+    local hex="${1#\#}" label="$2"
+    local r=$((16#${hex:0:2})) g=$((16#${hex:2:2})) b=$((16#${hex:4:2}))
+    printf "  \033[48;2;%d;%d;%dm    \033[0m \033[38;2;%d;%d;%dm%-26s\033[0m %s\n" \
+        "$r" "$g" "$b" "$r" "$g" "$b" "$label" "$1"
+}
+
+_rule() { printf "\n\033[2m── %s \033[0m\n" "$1"; }
+
+# ── Raw palette ───────────────────────────────────────────────────────────────
+_rule "Raw palette"
+_swatch "$PANDA_BG"           "PANDA_BG"
+_swatch "$PANDA_FG"           "PANDA_FG"
+_swatch "$PANDA_RED"          "PANDA_RED"
+_swatch "$PANDA_HOT_PINK"     "PANDA_HOT_PINK"
+_swatch "$PANDA_PINK"         "PANDA_PINK"
+_swatch "$PANDA_LIGHT_PINK"   "PANDA_LIGHT_PINK"
+_swatch "$PANDA_CURSOR"       "PANDA_CURSOR"
+_swatch "$PANDA_LIME"         "PANDA_LIME"
+_swatch "$PANDA_CYAN"         "PANDA_CYAN"
+_swatch "$PANDA_BLUE"         "PANDA_BLUE"
+_swatch "$PANDA_LIGHT_BLUE"   "PANDA_LIGHT_BLUE"
+_swatch "$PANDA_ORANGE"       "PANDA_ORANGE"
+_swatch "$PANDA_LIGHT_ORANGE" "PANDA_LIGHT_ORANGE"
+_swatch "$PANDA_PURPLE"       "PANDA_PURPLE"
+_swatch "$PANDA_LAVENDER"     "PANDA_LAVENDER"
+_swatch "$PANDA_COMMENT"      "PANDA_COMMENT"
+_swatch "$PANDA_SELECTION"    "PANDA_SELECTION"
+
+# ── Semantic colors ───────────────────────────────────────────────────────────
+_rule "Semantic colors"
+_swatch "$COLOR_KEYWORD"  "COLOR_KEYWORD"
+_swatch "$COLOR_STRING"   "COLOR_STRING"
+_swatch "$COLOR_FUNCTION" "COLOR_FUNCTION"
+_swatch "$COLOR_CONSTANT" "COLOR_CONSTANT"
+_swatch "$COLOR_VARIABLE" "COLOR_VARIABLE"
+_swatch "$COLOR_OPERATOR" "COLOR_OPERATOR"
+_swatch "$COLOR_TAG"      "COLOR_TAG"
+_swatch "$COLOR_ESCAPE"   "COLOR_ESCAPE"
+_swatch "$COLOR_COMMENT"  "COLOR_COMMENT"
+_swatch "$COLOR_ERROR"    "COLOR_ERROR"
+_swatch "$COLOR_WARNING"  "COLOR_WARNING"
+_swatch "$COLOR_INFO"     "COLOR_INFO"
+
+# ── Shell UI output ───────────────────────────────────────────────────────────
+_rule "Shell UI"
+echo -e "  ${ANSI_OK}✓${ANSI_RESET} Packages installed successfully"
+echo -e "  ${ANSI_UPDATED}↑${ANSI_RESET} nvim updated to v0.10.3"
+echo -e "  ${ANSI_WARN}~${ANSI_RESET} Config file already exists, skipping"
+echo -e "  ${ANSI_ERR}✗${ANSI_RESET} Failed to connect to remote"
+echo -e "\n${ANSI_BOLD}${ANSI_HEADER}── Installing tools${ANSI_RESET}"
+echo -e "  ${ANSI_DIM}(secondary / dim text)${ANSI_RESET}"
+
+# ── Simulated Python syntax ───────────────────────────────────────────────────
+_rule "Syntax (Python)"
+
+KW="$(_ansi_fg "$COLOR_KEYWORD")"
+STR="$(_ansi_fg "$COLOR_STRING")"
+FN="$(_ansi_fg "$COLOR_FUNCTION")"
+CONST="$(_ansi_fg "$COLOR_CONSTANT")"
+VAR="$(_ansi_fg "$COLOR_VARIABLE")"
+OP="$(_ansi_fg "$COLOR_OPERATOR")"
+TAG="$(_ansi_fg "$COLOR_TAG")"
+CMT="$(_ansi_fg "$COLOR_COMMENT")"
+ESC="$(_ansi_fg "$COLOR_ESCAPE")"
+ERR="$(_ansi_fg "$COLOR_ERROR")"
+R="\033[0m"
+
+printf "\n"
+printf "  ${CMT}# Panda Syntax — Python example${R}\n"
+printf "\n"
+printf "  ${KW}import${R} json\n"
+printf "  ${KW}from${R} pathlib ${KW}import${R} ${TAG}Path${R}\n"
+printf "\n"
+printf "  ${TAG}RETRIES${R} ${OP}=${R} ${CONST}3${R}\n"
+printf "  ${TAG}BASE_URL${R} ${OP}=${R} ${STR}\"https://api.example.com\"${R}\n"
+printf "\n"
+printf "  ${KW}class${R} ${TAG}ApiClient${R}:\n"
+printf "      ${KW}def${R} ${FN}__init__${R}(${KW}self${R}, token${OP}:${R} ${TAG}str${R}):\n"
+printf "          ${KW}self${R}.token ${OP}=${R} token\n"
+printf "          ${KW}self${R}.session ${OP}=${R} ${CONST}None${R}\n"
+printf "\n"
+printf "      ${KW}def${R} ${FN}fetch${R}(${KW}self${R}, path${OP}:${R} ${TAG}str${R}) ${OP}->${R} ${TAG}dict${R}:\n"
+printf "          ${CMT}# build url and fire request${R}\n"
+printf "          url ${OP}=${R} ${FN}f${R}${STR}\"${ESC}{${R}${TAG}BASE_URL${R}${ESC}}${R}${STR}/{path}\"${R}\n"
+printf "          ${KW}if not${R} ${KW}self${R}.session:\n"
+printf "              ${KW}raise${R} ${ERR}RuntimeError${R}(${STR}\"no session\"${R})\n"
+printf "          ${KW}return${R} json.${FN}loads${R}(${KW}self${R}.session.${FN}get${R}(url).text)\n"
+printf "\n"
+
+# ── Prompt preview ────────────────────────────────────────────────────────────
+_rule "Prompt preview"
+_ok="$(_ansi_fg  "$COLOR_PROMPT_OK")"
+_err="$(_ansi_fg "$COLOR_PROMPT_ERR")"
+_usr="$(_ansi_fg "$COLOR_PROMPT_USER")"
+_sep="$(_ansi_fg "$COLOR_PROMPT_SEP")"
+_dir="$(_ansi_fg "$COLOR_PROMPT_DIR")"
+_dlr="$(_ansi_fg "$COLOR_PROMPT_DOLLAR")"
+_fg="$(_ansi_fg  "$COLOR_FG")"
+R="\033[0m"
+
+printf "\n"
+printf "  ${_ok}▸${R}${_usr}charles${_sep}@${_usr}macbook${_fg}:${_dir}~/src/dotfiles ${_dlr}\$${R} _\n"
+printf "  ${_err}▸${R}${_usr}charles${_sep}@${_usr}macbook${_fg}:${_dir}~/src/dotfiles ${_dlr}\$${R} _  (after error)\n"
+printf "\n"
