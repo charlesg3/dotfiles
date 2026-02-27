@@ -97,7 +97,7 @@ RP="${BAR_PLAIN}  ${PCT}%   💰 ${COST_FMT}   ⏱️ ${MINS}m ${SECS}s"
 # Try multiple sources for terminal width; default 120 if nothing works
 COLS=${COLUMNS:-}
 [ -z "$COLS" ] && COLS=$(tput cols 2>/dev/null)
-[ -z "$COLS" ] || [ "$COLS" -le 0 ] && COLS=120
+[[ -z "$COLS" || "$COLS" -le 0 ]] && COLS=120
 
 read -r LW RW < <(python3 - "$LP" "$RP" <<'PYEOF'
 import sys, unicodedata
