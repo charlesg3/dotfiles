@@ -32,6 +32,6 @@ if [ "$elapsed" -gt 150 ]; then
   if [ -n "$NVIM" ]; then
     nvim --server "$NVIM" --remote-expr "v:lua.notify_done('claude (${elapsed}s)', 0, '${msg}')" &>/dev/null &
   fi
-  notification &>/dev/null &
+  # notification &>/dev/null &
 fi
 exit 0
