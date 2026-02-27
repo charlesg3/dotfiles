@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Claude Code status line
-#   Line 1:  [◐◓◑◒ | ○ 42s]  📁 dirname   🌿 branch  +staged  ~modified
-#   Line 2:  ▓▓▓░░░░░░░  30%   💰 $0.04   ⏱️ 2m 15s
+# Claude Code status line — single line, left/right sections
+#   LEFT:  [⠋ | ○ 42s]  📁 dirname   🌿 branch  +N ~N
+#   RIGHT: ▓▓░░░░░░░░  12%   💰 $0.04   ⏱️ 2m 15s
 
 input=$(cat)
 
@@ -13,17 +13,19 @@ DURA=$(echo "$input"       | jq -r '.cost.total_duration_ms // 0')
 
 GREEN='\033[32m'; YELLOW='\033[33m'; RED='\033[31m'; DIM='\033[2m'; RESET='\033[0m'
 
-# ── Spinner / ready state ────────────────────────────────────────────────────
+# ── Spinner / ready ──────────────────────────────────────────────────────────
 
 SPINNERS=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
 if [ -n "$SESSION_ID" ] && [ -f "/tmp/claude-start-${SESSION_ID}" ]; then
     FRAME=$(( $(date +%s) % 10 ))
     STATE="${SPINNERS[$FRAME]}"
+    STATE_PLAIN="${SPINNERS[$FRAME]}"
 else
     LAST=""
     [ -n "$SESSION_ID" ] && [ -f "/tmp/claude-last-time-${SESSION_ID}" ] \
         && LAST=" $(cat "/tmp/claude-last-time-${SESSION_ID}")"
     STATE="${DIM}○${LAST}${RESET}"
+    STATE_PLAIN="○${LAST}"
 fi
 
 # ── Context bar ──────────────────────────────────────────────────────────────
@@ -53,16 +55,41 @@ if [ ! -f "$CACHE" ] || [ $(( $(date +%s) - $(_mtime "$CACHE") )) -gt 5 ]; then
 fi
 IFS='|' read -r BRANCH STAGED MODIFIED < "$CACHE"
 
-# ── Line 1: [state]  📁 dirname   🌿 branch  +N  ~N ─────────────────────────
+# ── Left: [state]  📁 dirname   🌿 branch  +N  ~N ───────────────────────────
 
-GIT=""
+L="${STATE}  📁 ${DIR##*/}"
+LP="${STATE_PLAIN}  📁 ${DIR##*/}"
 if [ -n "$BRANCH" ]; then
-    GIT="   🌿 ${BRANCH}"
-    [ "${STAGED:-0}" -gt 0 ]   && GIT="${GIT}  ${GREEN}+${STAGED}${RESET}"
-    [ "${MODIFIED:-0}" -gt 0 ] && GIT="${GIT}  ${YELLOW}~${MODIFIED}${RESET}"
+    L="${L}   🌿 ${BRANCH}";  LP="${LP}   🌿 ${BRANCH}"
+    if [ "${STAGED:-0}" -gt 0 ]; then
+        L="${L}  ${GREEN}+${STAGED}${RESET}"; LP="${LP}  +${STAGED}"
+    fi
+    if [ "${MODIFIED:-0}" -gt 0 ]; then
+        L="${L}  ${YELLOW}~${MODIFIED}${RESET}"; LP="${LP}  ~${MODIFIED}"
+    fi
 fi
-printf '%b\n' "${STATE}  📁 ${DIR##*/}${GIT}"
 
-# ── Line 2: ▓▓▓░░░░░░░  30%   💰 $0.04   ⏱️ 2m 15s ─────────────────────────
+# ── Right: ▓▓░░░░░░░░  12%   💰 $0.04   ⏱️ 2m 15s ──────────────────────────
 
-printf '%b\n' "${BAR_COLOR}${BAR}${RESET}  ${PCT}%%   ${YELLOW}${COST_FMT}${RESET}   ⏱️ ${MINS}m ${SECS}s"
+R="${BAR_COLOR}${BAR}${RESET}  ${PCT}%   ${YELLOW}💰 ${COST_FMT}${RESET}   ⏱️ ${MINS}m ${SECS}s"
+RP="${BAR}  ${PCT}%   💰 ${COST_FMT}   ⏱️ ${MINS}m ${SECS}s"
+
+# ── Padding (python for correct emoji/wide-char width) ───────────────────────
+
+COLS=$(tput cols 2>/dev/null || echo 80)
+read -r LW RW < <(python3 - "$LP" "$RP" <<'PYEOF'
+import sys, unicodedata
+def vlen(s):
+    return sum(
+        2 if unicodedata.east_asian_width(c) in ('W', 'F') else
+        0 if unicodedata.category(c) in ('Mn', 'Me', 'Cf') else 1
+        for c in s)
+print(vlen(sys.argv[1]), vlen(sys.argv[2]))
+PYEOF
+)
+PAD=$(( COLS - LW - RW ))
+[ "$PAD" -lt 1 ] && PAD=1
+
+# ── Output ────────────────────────────────────────────────────────────────────
+
+printf '%b%*s%b\n' "$L" "$PAD" "" "$R"
