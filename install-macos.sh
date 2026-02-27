@@ -92,10 +92,16 @@ fi
 header "Kitty"
 if [[ -d "/Applications/kitty.app" ]]; then
     osascript <<'APPLESCRIPT'
-tell application "Finder"
-    set the icon of (POSIX file "/Applications/kitty.app" as alias) to ¬
-        (get the icon of (path to application "Terminal"))
-end tell
+set terminalPath to "/System/Applications/Utilities/Terminal.app"
+if not (POSIX file terminalPath as alias) exists then
+    set terminalPath to "/Applications/Utilities/Terminal.app"
+end if
+try
+    tell application "Finder"
+        set the icon of (POSIX file "/Applications/kitty.app" as alias) to ¬
+            (get the icon of (POSIX file terminalPath as alias))
+    end tell
+end try
 APPLESCRIPT
     ok "Kitty icon set to Terminal icon"
 else
