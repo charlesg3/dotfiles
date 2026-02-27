@@ -98,6 +98,7 @@ install_pkg ncdu
 install_pkg colordiff
 install_pkg bat
 install_pkg eza
+install_pkg expect
 [[ "$(uname)" == "Linux" ]] && install_pkg xclip
 [[ "$(uname)" == "Linux" ]] && install_pkg mpg123
 install_pkg zsh-autosuggestions
