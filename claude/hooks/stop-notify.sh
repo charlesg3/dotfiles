@@ -13,6 +13,15 @@ if [ -f "$start_file" ]; then
   rm -f "$start_file"
 fi
 
+# Save last response time for statusline
+if [ "$elapsed" -gt 0 ]; then
+  if [ "$elapsed" -ge 60 ]; then
+    printf '%dm %ds' $((elapsed / 60)) $((elapsed % 60)) > "/tmp/claude-last-time-${SESSION_ID}"
+  else
+    printf '%ds' "$elapsed" > "/tmp/claude-last-time-${SESSION_ID}"
+  fi
+fi
+
 if [ "$elapsed" -gt 150 ]; then
   # Extract first line of Claude's response, truncated to 80 chars
   msg=$(echo "$INPUT" | jq -r '.last_assistant_message // ""' | head -1 | cut -c1-80)
