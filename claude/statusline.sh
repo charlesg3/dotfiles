@@ -30,9 +30,11 @@ if [ -n "$SESSION_ID" ] && [ -f "/tmp/claude-start-${SESSION_ID}" ]; then
     STATE="${SPINNERS[$FRAME]}"
     STATE_PLAIN="${SPINNERS[$FRAME]}"
 else
-    LAST=""
-    [ -n "$SESSION_ID" ] && [ -f "/tmp/claude-last-time-${SESSION_ID}" ] \
-        && LAST=" $(cat "/tmp/claude-last-time-${SESSION_ID}")"
+    if [ -n "$SESSION_ID" ] && [ -f "/tmp/claude-last-time-${SESSION_ID}" ]; then
+        LAST=" $(cat "/tmp/claude-last-time-${SESSION_ID}")"
+    else
+        LAST=" ready"
+    fi
     STATE="${GREEN}●${LAST}${RESET}"
     STATE_PLAIN="●${LAST}"
 fi
