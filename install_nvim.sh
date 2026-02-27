@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Sets up the nvim config and updates all plugins to latest.
-# Symlinks nvim/ to ~/.config/nvim, then initialises and updates
-# each bundle submodule to remote HEAD with coloured progress output.
-# Optionally runs nvim/scripts/install.sh to install system dependencies.
+# Initialises the nvim submodule, symlinks it to ~/.config/nvim,
+# updates each plugin to remote HEAD with coloured progress output,
+# and optionally installs system dependencies.
 #
 # Usage:
 #   ./install_nvim.sh [--deps] [--python] [--clojure] [--go]
@@ -22,7 +22,7 @@ INSTALL_DEPS=false
 DEPS_ARGS=()
 for arg in "$@"; do
     case $arg in
-        --deps)               INSTALL_DEPS=true ;;
+        --deps)                  INSTALL_DEPS=true ;;
         --python|--clojure|--go) INSTALL_DEPS=true; DEPS_ARGS+=("$arg") ;;
         *)
             err "Unknown option: $arg"
@@ -32,36 +32,40 @@ for arg in "$@"; do
     esac
 done
 
-# ── Nvim config symlink ────────────────────────────────────────────────────────
+# ── Nvim submodule ────────────────────────────────────────────────────────────
 
 header "Nvim config"
 
-NVIM_DIR="$HOME/.config/nvim"
-if [ -d "$NVIM_DIR" ] && [ ! -L "$NVIM_DIR" ]; then
-    warn "$NVIM_DIR is a regular directory — removing and replacing with symlink"
-    rm -rf "$NVIM_DIR"
+_spin "nvim"
+git -C "$DOTFILES" submodule update --init -- nvim 2>/dev/null
+_clear_spin; ok "nvim"
+
+NVIM_DIR="$DOTFILES/nvim"
+
+# Symlink ~/.config/nvim → dotfiles/nvim
+CONFIG_NVIM="$HOME/.config/nvim"
+if [ -d "$CONFIG_NVIM" ] && [ ! -L "$CONFIG_NVIM" ]; then
+    warn "$CONFIG_NVIM is a regular directory — removing and replacing with symlink"
+    rm -rf "$CONFIG_NVIM"
 fi
 mkdir -p "$HOME/.config"
-ln -sfn "$DOTFILES/nvim" "$NVIM_DIR"
-ok "~/.config/nvim → $DOTFILES/nvim"
+ln -sfn "$NVIM_DIR" "$CONFIG_NVIM"
+ok "~/.config/nvim → $NVIM_DIR"
 
-# ── Nvim plugins (submodules) ──────────────────────────────────────────────────
+# ── Nvim plugins (nested submodules inside nvim/) ─────────────────────────────
 
 header "Nvim plugins"
 
-# For each plugin: init (if new) + update to remote HEAD in one step.
-# Captures SHA before and after so we can report what changed.
 updated_plugins=()
 
-for bundle_path in "$DOTFILES/nvim/bundle"/*/; do
+for bundle_path in "$NVIM_DIR/bundle"/*/; do
     [ -d "$bundle_path" ] || continue
     name="$(basename "$bundle_path")"
-    rel_path="nvim/bundle/$name"
 
     before_sha="$(git -C "$bundle_path" rev-parse --short HEAD 2>/dev/null || echo "")"
 
     _spin "$name"
-    if git -C "$DOTFILES" submodule update --init --remote --depth=1 -- "$rel_path" 2>/dev/null; then
+    if git -C "$NVIM_DIR" submodule update --init --remote --depth=1 -- "bundle/$name" 2>/dev/null; then
         after_sha="$(git -C "$bundle_path" rev-parse --short HEAD 2>/dev/null || echo "?")"
         _clear_spin
         if [[ -z "$before_sha" ]]; then
@@ -82,10 +86,12 @@ done
 if [[ ${#updated_plugins[@]} -gt 0 ]]; then
     plugin_list="$(IFS=", "; echo "${updated_plugins[*]}")"
     _spin "committing plugin updates"
-    git -C "$DOTFILES" add nvim/bundle/
-    git -C "$DOTFILES" commit -m "chore: update nvim plugins ($(date +%Y-%m-%d))
+    git -C "$NVIM_DIR" add bundle/
+    git -C "$NVIM_DIR" commit -m "chore: update plugins ($(date +%Y-%m-%d))
 
-Updated: $plugin_list" 2>/dev/null
+Updated: $plugin_list" 2>/dev/null || true
+    git -C "$DOTFILES" add nvim
+    git -C "$DOTFILES" commit -m "chore: bump nvim plugins ($(date +%Y-%m-%d))" 2>/dev/null || true
     _clear_spin; ok "committed ${#updated_plugins[@]} plugin update(s)"
 fi
 
@@ -93,7 +99,7 @@ fi
 
 if [[ "$INSTALL_DEPS" == true ]]; then
     header "Nvim dependencies"
-    bash "$DOTFILES/nvim/scripts/install.sh" "${DEPS_ARGS[@]}"
+    bash "$NVIM_DIR/scripts/install.sh" "${DEPS_ARGS[@]}"
 fi
 
 echo -e "\n${BOLD}${GREEN}Done!${RESET}"
