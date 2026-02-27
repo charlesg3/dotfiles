@@ -10,6 +10,7 @@ DIM='\033[2m'
 RESET='\033[0m'
 
 ok()          { echo -e "  ${GREEN}✓${RESET} $*"; }
+updated()     { echo -e "  ${CYAN}↑${RESET} $*"; }
 warn()        { echo -e "  ${YELLOW}~${RESET} $*"; }
 err()         { echo -e "  ${RED}✗${RESET} $*"; }
 header()      { echo -e "\n${BOLD}${CYAN}${*}${RESET}"; }

@@ -88,7 +88,7 @@ _brew_update() {
             brew upgrade --quiet "$pkg" 2>/dev/null || true
             local new_version
             new_version=$(brew list --versions "$pkg" | awk '{print $NF}')
-            _clear_spin; ok "$pkg ${GREEN}$new_version${RESET} ${DIM}(updated from $version)${RESET}"
+            _clear_spin; updated "$pkg ${YELLOW}$version → $new_version${RESET}"
         else
             warn "$pkg: ${YELLOW}$version → $candidate${RESET} available — re-run with $hint to upgrade"
         fi
@@ -167,7 +167,7 @@ _apt_update() {
         if [[ "$do_upgrade" == true ]]; then
             _spin "$pkg"
             sudo apt-get install -y -qq --only-upgrade "$pkg" >/dev/null 2>&1 || true
-            _clear_spin; ok "$pkg ${GREEN}$candidate${RESET} ${DIM}(updated from $installed)${RESET}"
+            _clear_spin; updated "$pkg ${YELLOW}$installed → $candidate${RESET}"
         else
             warn "$pkg: ${YELLOW}$installed → $candidate${RESET} available — re-run with $hint to upgrade"
         fi

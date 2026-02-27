@@ -75,10 +75,10 @@ for bundle_path in "$NVIM_DIR/bundle"/*/; do
         after_sha="$(git -C "$bundle_path" rev-parse --short HEAD 2>/dev/null || echo "?")"
         _clear_spin
         if [[ -z "$before_sha" ]]; then
-            ok "$name ${DIM}$after_sha${RESET}"
+            updated "$name ${DIM}$after_sha${RESET}"
             updated_plugins+=("$name")
         elif [[ "$before_sha" != "$after_sha" ]]; then
-            ok "$name ${DIM}$after_sha${RESET} ${DIM}(was $before_sha)${RESET}"
+            updated "$name ${YELLOW}$before_sha → $after_sha${RESET}"
             updated_plugins+=("$name")
         else
             ok "$name ${DIM}$after_sha${RESET}"
