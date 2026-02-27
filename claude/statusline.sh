@@ -15,30 +15,25 @@ DURA=$(echo "$input"       | jq -r '.cost.total_duration_ms // 0')
 LIME='\033[38;5;150m'; YELLOW='\033[33m'; RED='\033[31m'; GREEN='\033[32m'; PURPLE='\033[38;5;147m'; DIM='\033[2m'; RESET='\033[0m'
 
 # ── Spinner / ready ──────────────────────────────────────────────────────────
-# States: ● ready → ↻ (first 1s of streaming) → braille spinner
+# States: ● ready → ↻ working (first call) → ⠋ working (subsequent calls, 1fps)
 
 SPINNERS=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
 if [ -n "$SESSION_ID" ] && [ -f "/tmp/claude-start-${SESSION_ID}" ]; then
-    WAIT_FILE="/tmp/claude-waiting-${SESSION_ID}"
     SPIN_FILE="/tmp/claude-sl-spin-${SESSION_ID}"
     NOW=$(date +%s)
 
-    if [ ! -f "$WAIT_FILE" ]; then
-        # First streaming token — begin 1s circular-arrow phase
-        printf '%s' "$NOW" > "$WAIT_FILE"
-        STATE="↻"; STATE_PLAIN="↻"
-    elif [ $(( NOW - $(cat "$WAIT_FILE") )) -lt 1 ]; then
-        # Still within 1s of first token — hold on circular arrow
-        STATE="↻"; STATE_PLAIN="↻"
+    if [ ! -f "$SPIN_FILE" ]; then
+        # First call — show ↻ and initialise spinner state
+        printf '0|%s' "$NOW" > "$SPIN_FILE"
+        STATE="↻ working"; STATE_PLAIN="↻ working"
     else
-        # 1s+ of streaming — advance braille spinner at most once per second
-        IFS='|' read -r FRAME LAST_SEC < <(cat "$SPIN_FILE" 2>/dev/null || echo "0|0")
+        # Subsequent calls — advance braille spinner at most once per second
+        IFS='|' read -r FRAME LAST_SEC < "$SPIN_FILE"
         if [ "$NOW" -gt "${LAST_SEC:-0}" ]; then
             FRAME=$(( (FRAME + 1) % 10 ))
             printf '%s|%s' "$FRAME" "$NOW" > "$SPIN_FILE"
         fi
-        STATE="${SPINNERS[$FRAME]}"
-        STATE_PLAIN="${SPINNERS[$FRAME]}"
+        STATE="${SPINNERS[$FRAME]} working"; STATE_PLAIN="${SPINNERS[$FRAME]} working"
     fi
 else
     if [ -n "$SESSION_ID" ] && [ -f "/tmp/claude-last-time-${SESSION_ID}" ]; then
@@ -52,7 +47,7 @@ fi
 
 # ── Context bar (green < 70%, yellow 70–89%, red ≥ 90%) ─────────────────────
 
-[ "${PCT:-0}" -ge 90 ] && BAR_COLOR="$RED" || { [ "${PCT:-0}" -ge 70 ] && BAR_COLOR="$YELLOW" || BAR_COLOR="$GREEN"; }
+[ "${PCT:-0}" -ge 90 ] && BAR_COLOR="$RED" || { [ "${PCT:-0}" -ge 70 ] && BAR_COLOR="$YELLOW" || BAR_COLOR="$LIME"; }
 FILLED=$(( ${PCT:-0} / 10 )); EMPTY=$((10 - FILLED))
 BAR="${BAR_COLOR}$(printf "%${FILLED}s" | tr ' ' '█')${RESET}${DIM}$(printf "%${EMPTY}s" | tr ' ' '░')${RESET}"
 BAR_PLAIN="$(printf "%${FILLED}s" | tr ' ' '█')$(printf "%${EMPTY}s" | tr ' ' '░')"
