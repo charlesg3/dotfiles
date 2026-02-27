@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 # Claude Code status line — single line, left/right sections
-#   LEFT:  [⠋ | ● 42s]  📁 dirname   🌿 branch  +N ~N
-#   RIGHT: ▓▓░░░░░░░░  12%   💰 $0.04   ⏱️ 2m 15s
+#   LEFT:  [⠋ | ↻ | ● 42s]  📁 dirname   🌿 branch  +N *N
+#   RIGHT: ▓▓░░░░░░░░  92%   💰 $0.04   ⏱️ 2m 15s
 
 input=$(cat)
 
 SESSION_ID=$(echo "$input" | jq -r '.session_id // ""')
 DIR=$(echo "$input"        | jq -r '.workspace.current_dir // ""')
-PCT=$(echo "$input"        | jq -r '.context_window.used_percentage // 0' | cut -d. -f1)
+# Use remaining_percentage to match Claude's "Context left" display
+PCT=$(echo "$input" | jq -r '(100 - (.context_window.remaining_percentage // 0)) | floor')
 COST=$(echo "$input"       | jq -r '.cost.total_cost_usd // 0')
 DURA=$(echo "$input"       | jq -r '.cost.total_duration_ms // 0')
 
-GREEN='\033[32m'; YELLOW='\033[33m'; RED='\033[31m'; DIM='\033[2m'; RESET='\033[0m'
+LIME='\033[92m'; YELLOW='\033[33m'; RED='\033[31m'; GREEN='\033[32m'; DIM='\033[2m'; RESET='\033[0m'
 
 # ── Spinner / ready ──────────────────────────────────────────────────────────
-# Counter-based: each statusline call advances the frame, so it actually animates
-# during streaming (called per token) rather than relying on wall-clock seconds.
+# States: ● ready → ↻ (first 1s of streaming) → braille spinner
 
 SPINNERS=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
 if [ -n "$SESSION_ID" ] && [ -f "/tmp/claude-start-${SESSION_ID}" ]; then
@@ -46,14 +46,14 @@ else
     else
         LAST=" ready"
     fi
-    STATE="${GREEN}●${LAST}${RESET}"
+    STATE="${LIME}●${LAST}${RESET}"
     STATE_PLAIN="●${LAST}"
 fi
 
 # ── Context bar (green < 70%, yellow 70–89%, red ≥ 90%) ─────────────────────
 
-[ "$PCT" -ge 90 ] && BAR_COLOR="$RED" || { [ "$PCT" -ge 70 ] && BAR_COLOR="$YELLOW" || BAR_COLOR="$GREEN"; }
-FILLED=$((PCT / 10)); EMPTY=$((10 - FILLED))
+[ "${PCT:-0}" -ge 90 ] && BAR_COLOR="$RED" || { [ "${PCT:-0}" -ge 70 ] && BAR_COLOR="$YELLOW" || BAR_COLOR="$GREEN"; }
+FILLED=$(( ${PCT:-0} / 10 )); EMPTY=$((10 - FILLED))
 BAR="${BAR_COLOR}$(printf "%${FILLED}s" | tr ' ' '█')${RESET}${DIM}$(printf "%${EMPTY}s" | tr ' ' '░')${RESET}"
 BAR_PLAIN="$(printf "%${FILLED}s" | tr ' ' '█')$(printf "%${EMPTY}s" | tr ' ' '░')"
 
@@ -78,7 +78,7 @@ if [ ! -f "$CACHE" ] || [ $(( $(date +%s) - $(_mtime "$CACHE") )) -gt 5 ]; then
 fi
 IFS='|' read -r BRANCH STAGED MODIFIED < "$CACHE"
 
-# ── Left: [state]  📁 dirname   🌿 branch  +N  ~N ───────────────────────────
+# ── Left: [state]  📁 dirname   🌿 branch  +N *N ────────────────────────────
 
 L="${STATE}  📁 ${DIR##*/}"
 LP="${STATE_PLAIN}  📁 ${DIR##*/}"
@@ -88,18 +88,22 @@ if [ -n "$BRANCH" ]; then
         L="${L}  ${GREEN}+${STAGED}${RESET}"; LP="${LP}  +${STAGED}"
     fi
     if [ "${MODIFIED:-0}" -gt 0 ]; then
-        L="${L}  ${YELLOW}~${MODIFIED}${RESET}"; LP="${LP}  ~${MODIFIED}"
+        L="${L}  ${YELLOW}*${MODIFIED}${RESET}"; LP="${LP}  *${MODIFIED}"
     fi
 fi
 
-# ── Right: ▓▓░░░░░░░░  12%   💰 $0.04   ⏱️ 2m 15s ──────────────────────────
+# ── Right: ▓▓░░░░░░░░  92%   💰 $0.04   ⏱️ 2m 15s ──────────────────────────
 
 R="${BAR}  ${PCT}%   ${YELLOW}💰 ${COST_FMT}${RESET}   ⏱️ ${MINS}m ${SECS}s"
 RP="${BAR_PLAIN}  ${PCT}%   💰 ${COST_FMT}   ⏱️ ${MINS}m ${SECS}s"
 
 # ── Padding (python for correct emoji/wide-char width) ───────────────────────
 
-COLS=$(tput cols 2>/dev/null || echo 80)
+# Try multiple sources for terminal width; default 120 if nothing works
+COLS=${COLUMNS:-}
+[ -z "$COLS" ] && COLS=$(tput cols 2>/dev/null)
+[ -z "$COLS" ] || [ "$COLS" -le 0 ] && COLS=120
+
 read -r LW RW < <(python3 - "$LP" "$RP" <<'PYEOF'
 import sys, unicodedata
 def vlen(s):
@@ -107,7 +111,7 @@ def vlen(s):
     i = 0
     while i < len(s):
         c = s[i]
-        # U+FE0F (variation selector-16) forces emoji presentation (2-wide); skip it
+        # U+FE0F (variation selector-16) forces emoji presentation (2-wide)
         next_vs16 = (i + 1 < len(s) and s[i+1] == '\uFE0F')
         cat = unicodedata.category(c)
         ew  = unicodedata.east_asian_width(c)
@@ -122,6 +126,7 @@ def vlen(s):
 print(vlen(sys.argv[1]), vlen(sys.argv[2]))
 PYEOF
 )
+LW=${LW:-0}; RW=${RW:-0}
 PAD=$(( COLS - LW - RW ))
 [ "$PAD" -lt 1 ] && PAD=1
 
