@@ -100,7 +100,7 @@ _brew_update() {
 if command -v brew &>/dev/null; then
     header "Homebrew"
     _spin "fetching updates"
-    brew update -q
+    brew update -q &>/dev/null
     _brew_preload
     _clear_spin
 
