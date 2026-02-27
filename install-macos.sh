@@ -90,28 +90,14 @@ fi
 # ── Kitty ─────────────────────────────────────────────────────────────────────
 
 header "Kitty"
+brew_install fileicon
 if [[ -d "/Applications/kitty.app" ]]; then
-    osascript <<'APPLESCRIPT'
--- Resolve Terminal.app path (moved to /System/Applications in macOS 10.15+)
--- Use try/on error instead of exists check; "as alias" throws if path missing
-set terminalPath to "/System/Applications/Utilities/Terminal.app"
-try
-    set terminalAlias to POSIX file terminalPath as alias
-on error
-    set terminalAlias to POSIX file "/Applications/Utilities/Terminal.app" as alias
-end try
-tell application "Finder"
-    set the icon of (POSIX file "/Applications/kitty.app" as alias) to ¬
-        (get the icon of terminalAlias)
-end tell
-APPLESCRIPT
+    fileicon set /Applications/kitty.app \
+        /System/Applications/Utilities/Terminal.app
     if [[ $? -eq 0 ]]; then
         ok "Kitty icon set to Terminal icon"
     else
-        warn "Kitty icon swap failed — kitty needs permission to control Finder."
-        warn "Fix: run this from kitty to trigger the macOS permission dialog:"
-        warn "  osascript -e 'tell application \"Finder\" to get name of startup disk'"
-        warn "If prompted, click OK, then re-run this script."
+        warn "Kitty icon swap failed."
     fi
 else
     warn "kitty.app not found, skipping icon swap"

@@ -34,7 +34,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Packages to always upgrade
-BREW_PKGS=(jq tree htop ncdu colordiff bat eza zsh-autosuggestions zsh-syntax-highlighting glow gh colima)
+BREW_PKGS=(jq tree htop ncdu colordiff bat eza zsh-autosuggestions zsh-syntax-highlighting glow gh colima fileicon)
 APT_PKGS=(jq tree htop ncdu colordiff bat eza xclip zsh-autosuggestions zsh-syntax-highlighting glow gh)
 
 _spin()       { printf "  ${DIM}⟳${RESET}  %s..." "$1"; }
