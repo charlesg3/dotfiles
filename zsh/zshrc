@@ -36,5 +36,10 @@ _source_if "$(brew --prefix 2>/dev/null)/share/zsh-syntax-highlighting/zsh-synta
 _source_if "/usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
 unset -f _source_if
 
+# ── Kitty shell integration ───────────────────────────────────────────────────
+# $KITTY_INSTALLATION_DIR is set by Kitty at launch; no-op outside Kitty
+[[ -n "$KITTY_INSTALLATION_DIR" ]] && \
+    source "$KITTY_INSTALLATION_DIR/shell-integration/zsh/kitty.zsh"
+
 # ── Local overrides (machine-specific, not tracked) ──────────────────────────
 [ -f "$HOME/.zshrc.local" ] && source "$HOME/.zshrc.local"

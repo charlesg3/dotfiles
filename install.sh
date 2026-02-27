@@ -99,6 +99,7 @@ install_pkg colordiff
 install_pkg bat
 install_pkg eza
 [[ "$(uname)" == "Linux" ]] && install_pkg xclip
+[[ "$(uname)" == "Linux" ]] && install_pkg mpg123
 install_pkg zsh-autosuggestions
 install_pkg zsh-syntax-highlighting
 
@@ -175,6 +176,21 @@ if [[ "$INSTALL_NODE" == true ]]; then
     else
         warn "node: no supported package manager"
     fi
+fi
+
+# ── Claude Code hooks ─────────────────────────────────────────────────────────
+
+if command -v claude &>/dev/null; then
+    header "Claude Code hooks"
+    link "$DOTFILES/claude/hooks/prompt-start.sh" "$HOME/.claude/hooks/prompt-start.sh"
+    link "$DOTFILES/claude/hooks/stop-notify.sh"  "$HOME/.claude/hooks/stop-notify.sh"
+
+    CLAUDE_SETTINGS="$HOME/.claude/settings.json"
+    mkdir -p "$(dirname "$CLAUDE_SETTINGS")"
+    [ -f "$CLAUDE_SETTINGS" ] || echo '{}' > "$CLAUDE_SETTINGS"
+    tmp=$(mktemp)
+    jq --slurpfile patch "$DOTFILES/claude/hooks.json" '. * $patch[0]' "$CLAUDE_SETTINGS" > "$tmp" \
+        && mv "$tmp" "$CLAUDE_SETTINGS" && ok "~/.claude/settings.json (hooks)"
 fi
 
 # ── OS-specific ───────────────────────────────────────────────────────────────

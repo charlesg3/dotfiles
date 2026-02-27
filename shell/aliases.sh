@@ -40,16 +40,4 @@ alias irgrep='grep -ri --color=auto'
 weather() { curl "wttr.in/${1:-80302}"; }
 alias whatsmyip='curl -s ifconfig.me && echo'
 
-# Run a command and notify nvim when it finishes (only active inside nvim terminals).
-# Usage: notify sleep 10
-notify() {
-  "$@"
-  local exit_code=$?
-  local cmd="${1##*/}"
-  if [ -n "$NVIM" ]; then
-    nvim --server "$NVIM" --remote-expr "v:lua.notify_done('${cmd}', ${exit_code})" &>/dev/null &
-  fi
-  return $exit_code
-}
-
 alias yt-dl-mp3='yt-dlp --output "%(title)s.%(ext)s" --yes-playlist --cookies ~/Downloads/youtube.com_cookies.txt -x --audio-format mp3'

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Play an audio file. Uses afplay on macOS, mpg123 on Linux.
+# Usage: play [-v <volume>] <file>
+#   -v  Volume as a float 0.0–1.0 (default: 1.0)
+
+set -e
+
+volume="1.0"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -v) volume="$2"; shift 2 ;;
+        *)  break ;;
+    esac
+done
+
+if [[ $# -eq 0 ]]; then
+    echo "Usage: play [-v <volume>] <file>" >&2
+    exit 1
+fi
+
+if [[ "$(uname)" == "Darwin" ]]; then
+    exec afplay -v "$volume" "$@"
+else
+    # mpg123 --scale range is 0–32768 (default 32768 = full volume)
+    scale=$(printf '%.0f' "$(echo "$volume * 32768" | bc)")
+    exec mpg123 --quiet --scale "$scale" "$@"
+fi

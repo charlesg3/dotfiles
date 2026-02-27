@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Run a command; play a sound if it takes >10s, and notify nvim if inside a nvim terminal.
+# Usage: notify <command> [args...]
+
+if [[ $# -eq 0 ]]; then
+    echo "Usage: notify <command> [args...]" >&2
+    exit 1
+fi
+
+start=$SECONDS
+"$@"
+exit_code=$?
+elapsed=$(( SECONDS - start ))
+cmd="${1##*/}"
+
+if (( elapsed >= 10 )); then
+    notification &
+fi
+
+if [ -n "$NVIM" ]; then
+    nvim --server "$NVIM" --remote-expr "v:lua.notify_done('${cmd}', ${exit_code})" &>/dev/null &
+fi
+
+exit $exit_code

@@ -70,3 +70,9 @@ fi
 [ -f "$HOME/.bashrc.local" ] && . "$HOME/.bashrc.local"
 
 [[ ${BLE_VERSION-} ]] && ble-attach
+
+# ── Kitty shell integration ───────────────────────────────────────────────────
+# $KITTY_INSTALLATION_DIR is set by Kitty at launch; no-op outside Kitty
+# Must come after ble-attach since both use the DEBUG trap
+[ -n "$KITTY_INSTALLATION_DIR" ] && \
+    source "$KITTY_INSTALLATION_DIR/shell-integration/bash/kitty.bash"

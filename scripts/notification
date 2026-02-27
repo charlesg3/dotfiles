@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Play a random notification sound at low volume.
+
+SOUNDS_DIR="$HOME/src/dotfiles/notification_sounds"
+VOLUME=0.3
+
+sounds=("$SOUNDS_DIR"/*.mp3)
+sound="${sounds[RANDOM % ${#sounds[@]}]}"
+exec play -v "$VOLUME" "$sound"
