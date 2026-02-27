@@ -5,7 +5,8 @@
 #   ./install.sh [--nvim] [--node] [--email EMAIL]
 #
 # Flags:
-#   --nvim         Also install/update the nvim config
+#   --nvim         Also install nvim system dependencies (ctags, tree-sitter, fonts, etc.)
+#                  The nvim config symlink and plugin sync always run regardless.
 #   --node         Also install Node.js (LTS) and npm
 #   --email EMAIL  Git email address (skips interactive prompt)
 
@@ -140,23 +141,13 @@ else
 fi
 
 # ── Nvim ──────────────────────────────────────────────────────────────────────
+# Always run: symlink nvim/ → ~/.config/nvim and sync plugins.
+# Pass --deps only when --nvim was given to also install system dependencies.
 
 if [[ "$INSTALL_NVIM" == true ]]; then
-    header "Nvim"
-    NVIM_DIR="$HOME/.config/nvim"
-    if [ -d "$NVIM_DIR/.git" ]; then
-        warn "Updating nvim config..."
-        git -C "$NVIM_DIR" pull --ff-only 2>/dev/null && ok "nvim config updated" || warn "could not pull nvim config"
-        git -C "$NVIM_DIR" submodule update --remote --depth=1 2>/dev/null && ok "plugins updated" || true
-    else
-        warn "Cloning nvim config..."
-        git clone --recurse-submodules --depth=1 --shallow-submodules https://github.com/charlesg3/nvim.git "$NVIM_DIR"
-        ok "nvim config cloned"
-    fi
-    if [ -f "$NVIM_DIR/scripts/install.sh" ]; then
-        warn "Running nvim install.sh..."
-        bash "$NVIM_DIR/scripts/install.sh"
-    fi
+    bash "$DOTFILES/install_nvim.sh" --deps
+else
+    bash "$DOTFILES/install_nvim.sh"
 fi
 
 # ── Node ──────────────────────────────────────────────────────────────────────
@@ -201,6 +192,25 @@ if [[ "$OS" == "Darwin" ]]; then
     bash "$DOTFILES/install-macos.sh"
 elif [[ "$OS" == "Linux" ]]; then
     bash "$DOTFILES/install-linux.sh"
+fi
+
+# ── Remote URL ────────────────────────────────────────────────────────────────
+# Convert HTTPS origin to SSH once git is fully configured and SSH auth works.
+# Runs last so a missing SSH key never blocks the rest of the install.
+
+header "Git remote"
+ORIGIN=$(git -C "$DOTFILES" remote get-url origin 2>/dev/null || true)
+if [[ "$ORIGIN" == https://github.com/* ]]; then
+    SSH_URL="git@github.com:${ORIGIN#https://github.com/}"
+    if ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+        git -C "$DOTFILES" remote set-url origin "$SSH_URL"
+        ok "remote origin → $SSH_URL"
+    else
+        warn "SSH auth not available yet — keeping HTTPS origin"
+        warn "Once your SSH key is configured, run: git remote set-url origin $SSH_URL"
+    fi
+else
+    ok "remote origin: $ORIGIN"
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────

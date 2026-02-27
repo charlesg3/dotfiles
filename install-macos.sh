@@ -81,12 +81,11 @@ fi
 header "Kitty"
 brew_install fileicon
 if [[ -d "/Applications/kitty.app" ]]; then
-    fileicon set /Applications/kitty.app \
-        /System/Applications/Utilities/Terminal.app
-    if [[ $? -eq 0 ]]; then
+    TERMINAL_ICNS="/System/Applications/Utilities/Terminal.app/Contents/Resources/Terminal.icns"
+    if fileicon set /Applications/kitty.app "$TERMINAL_ICNS" &>/dev/null; then
         ok "Kitty icon set to Terminal icon"
     else
-        warn "Kitty icon swap failed."
+        warn "Kitty icon swap failed"
     fi
 else
     warn "kitty.app not found, skipping icon swap"

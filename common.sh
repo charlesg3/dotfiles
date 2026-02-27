@@ -9,7 +9,9 @@ RED='\033[0;31m'
 DIM='\033[2m'
 RESET='\033[0m'
 
-ok()   { echo -e "  ${GREEN}✓${RESET} $*"; }
-warn() { echo -e "  ${YELLOW}~${RESET} $*"; }
-err()  { echo -e "  ${RED}✗${RESET} $*"; }
-header() { echo -e "\n${BOLD}${CYAN}${*}${RESET}"; }
+ok()          { echo -e "  ${GREEN}✓${RESET} $*"; }
+warn()        { echo -e "  ${YELLOW}~${RESET} $*"; }
+err()         { echo -e "  ${RED}✗${RESET} $*"; }
+header()      { echo -e "\n${BOLD}${CYAN}${*}${RESET}"; }
+_spin()       { printf "  ${DIM}⟳${RESET}  %s..." "$1"; }
+_clear_spin() { printf "\r\033[2K"; }

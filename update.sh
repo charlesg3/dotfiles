@@ -37,9 +37,6 @@ done
 BREW_PKGS=(jq tree htop ncdu colordiff bat eza zsh-autosuggestions zsh-syntax-highlighting glow gh colima fileicon)
 APT_PKGS=(jq tree htop ncdu colordiff bat eza xclip zsh-autosuggestions zsh-syntax-highlighting glow gh)
 
-_spin()       { printf "  ${DIM}⟳${RESET}  %s..." "$1"; }
-_clear_spin() { printf "\r\033[2K"; }
-
 # Compare two semver strings; returns 0 if $1 > $2
 _semver_gt() {
     local IFS=.
@@ -224,6 +221,12 @@ if command -v kitty &>/dev/null && [[ "$(uname)" == "Linux" ]]; then
     _spin "kitty"
     kitty +update-kitty >/dev/null 2>&1 || true
     _clear_spin; ok "kitty ${DIM}$(kitty --version | awk '{print $2}')${RESET}"
+fi
+
+# ── Nvim ──────────────────────────────────────────────────────────────────────
+
+if [ -d "$DOTFILES/nvim/bundle" ]; then
+    bash "$DOTFILES/nvim/scripts/update.sh"
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────

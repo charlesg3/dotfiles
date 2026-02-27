@@ -1,0 +1,11 @@
+tags
+.DS_Store
+.netrwhist
+*.bak
+*.swp
+*.swo
+*.swn
+**/.svn/
+swap/
+shada/
+log

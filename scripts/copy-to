@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Syncs the dotfiles repo to a remote machine via rsync.
+#
+# The full tree — including .git — is transferred so the remote has complete
+# git history and all submodule git data (.git/modules/) ready to go.
+# No extra setup is needed on the remote for nvim plugins or git operations.
+#
+# Usage:
+#   ./scripts/copy-to [user@]host [remote-path]
+#
+# remote-path defaults to ~/src/dotfiles
+
+set -e
+
+DOTFILES="$(cd "$(dirname "$0")/.." && pwd)"
+. "$DOTFILES/common.sh"
+
+if [[ $# -lt 1 ]]; then
+    err "Usage: $0 [user@]host [remote-path]"
+    exit 1
+fi
+
+REMOTE="$1"
+REMOTE_PATH="${2:-src/dotfiles}"
+
+header "Syncing dotfiles to $REMOTE"
+
+ssh "$REMOTE" "mkdir -p ~/${REMOTE_PATH}"
+
+_spin "transferring files"
+rsync -az --delete \
+    --exclude='nvim/shada/' \
+    --exclude='nvim/swap/' \
+    --exclude='nvim/log' \
+    --exclude='nvim/.netrwhist' \
+    --exclude='*.bak' \
+    --exclude='*.swp' \
+    --exclude='*.swo' \
+    "$DOTFILES/" "${REMOTE}:~/${REMOTE_PATH}/"
+_clear_spin; ok "files transferred"
+
+# Mirror the local origin URL onto the remote so push/pull work immediately
+ORIGIN_URL="$(git -C "$DOTFILES" remote get-url origin 2>/dev/null || true)"
+if [[ -n "$ORIGIN_URL" ]]; then
+    ssh "$REMOTE" "git -C ~/${REMOTE_PATH} remote set-url origin '$ORIGIN_URL'" 2>/dev/null || true
+    ok "remote origin: $ORIGIN_URL"
+fi
+
+echo -e "\n${BOLD}${GREEN}Done!${RESET} Synced to ${CYAN}${REMOTE}:~/${REMOTE_PATH}${RESET}"
+warn "On the remote run: ~/${REMOTE_PATH}/install.sh"
