@@ -1,9 +1,16 @@
 {
+  "skipDangerousModePermissionPrompt": true,
   "permissions": {
     "allow": [
-      "Bash(ls:*)",
+      "Bash(find:*)",
       "Bash(grep:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Read(*)",
+      "Glob(*)",
+      "Grep(*)",
+      "WebFetch(*)",
+      "WebSearch(*)"
     ]
   }
 }
