@@ -53,6 +53,18 @@ else
     ok "kitty installed"
 fi
 
+# ── Fonts ─────────────────────────────────────────────────────────────────────
+
+header "Fonts"
+if dpkg -s fonts-jetbrains-mono &>/dev/null; then
+    ok "fonts-jetbrains-mono"
+else
+    warn "Installing fonts-jetbrains-mono..."
+    sudo apt-get install -y fonts-jetbrains-mono
+    fc-cache -f
+    ok "fonts-jetbrains-mono installed"
+fi
+
 # ── Docker ────────────────────────────────────────────────────────────────────
 
 header "Docker"

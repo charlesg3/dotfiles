@@ -35,7 +35,7 @@ done
 
 # Packages to always upgrade
 BREW_PKGS=(jq tree htop ncdu colordiff bat eza zsh-autosuggestions zsh-syntax-highlighting glow gh colima fileicon)
-APT_PKGS=(jq tree htop ncdu colordiff bat eza xclip zsh-autosuggestions zsh-syntax-highlighting glow gh)
+APT_PKGS=(jq tree htop ncdu colordiff bat eza xclip zsh-autosuggestions zsh-syntax-highlighting glow gh fonts-jetbrains-mono)
 
 # Compare two semver strings; returns 0 if $1 > $2
 _semver_gt() {
