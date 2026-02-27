@@ -6,44 +6,62 @@ Personal shell and tool configuration files for macOS and Linux.
 
 This repo manages dotfiles and installs CLI tools via `install.sh`. It symlinks configs for zsh, bash, git, kitty, and nvim.
 
-## Guidelines
+## Philosophy
 
-- **Cross-platform**: all changes should work on both macOS and Linux where possible. Use OS checks (`$OSTYPE == darwin*` in zsh, `$(uname) == Darwin` in bash) when behavior must differ.
-- **Both shells**: changes to shell config should be applied to both `zsh/zshrc` and `bash/bashrc`.
-- **install.sh**: new CLI tool dependencies should be added to `install.sh` using the existing `install_pkg` helper, which handles both Homebrew and apt.
-- **update.sh**: tools installed out-of-band (not via brew/apt) must also be updated in `update.sh`. This includes GitHub release downloads (e.g. ble.sh) and curl-installed tools (e.g. kitty on Linux). Brew/apt packages are also updated here by name.
-- **common.sh**: shared helpers (`ok`, `warn`, `err`, `header`, `_spin`, `_clear_spin`) sourced by all install scripts. Add shared utilities here; do not redefine them inline.
+- **Always up to date**: `install.sh` and `update.sh` pull the latest versions of everything — packages, submodules, and tools. Prefer `--remote` submodule updates over pinned SHAs.
+- **Clean output**: all scripts use the helpers from `common.sh` (`ok`, `warn`, `err`, `header`, `_spin`/`_clear_spin`). Never redefine these inline; never emit raw git/brew/apt noise to the user.
+- **Cross-platform**: all changes should work on both macOS and Linux. Use `$OSTYPE == darwin*` (zsh) or `$(uname) == Darwin` (bash) for OS-specific branches.
+- **Both shells**: changes to shell config go in both `zsh/zshrc` and `bash/bashrc`.
+
+## Key files
+
+| File | Purpose |
+|------|---------|
+| `install.sh` | Main setup — symlinks, packages, nvim, Claude hooks, OS-specific. Safe to re-run. |
+| `install_nvim.sh` | Pull latest nvim submodule, symlink `~/.config/nvim`, update plugins, optionally install deps. |
+| `update.sh` | Update all tools to latest (brew/apt packages, nvim, plugins, ble.sh, kitty). |
+| `common.sh` | Shared output helpers sourced by every install/update script. |
+| `install-macos.sh` | macOS-specific installs (Homebrew, apps, icon swap). |
+| `install-linux.sh` | Linux-specific installs (ble.sh, Kitty, Docker). |
+| `scripts/copy-to` | Rsync full dotfiles tree (incl. `.git`) to a remote machine. |
+
+## Adding things
+
+- **New CLI tool**: add `install_pkg <name>` to `install.sh` and the package name to the appropriate array in `update.sh`.
+- **Out-of-band tool** (GitHub release / curl install): add install logic to `install.sh` or `install-{macos,linux}.sh` and an update block to `update.sh`.
 
 ## Neovim
 
-Config lives in `nvim/` and is symlinked to `~/.config/nvim` by `install_nvim.sh`. Plugins are tracked as git submodules under `nvim/bundle/` (pathogen-style). Config is primarily Vimscript (`nvim/init.vim`) with Lua in `nvim/after/ftplugin/` for filetype-specific behaviour.
+`nvim/` is a git submodule pointing to `charlesg3/nvim.git`. It is symlinked to `~/.config/nvim` by `install_nvim.sh`. Plugins are nested git submodules under `nvim/bundle/` (pathogen-style).
+
+Both repos can be used independently: the nvim repo works standalone; dotfiles just orchestrates it.
 
 ### Scripts
 
 | Script | Purpose |
 |--------|---------|
-| `install_nvim.sh` | Symlink `nvim/` → `~/.config/nvim`, update all plugins to remote HEAD, commit any SHA changes, then run `nvim/scripts/install.sh`. Run via `install.sh --nvim`. |
-| `nvim/scripts/install.sh` | Install system dependencies (ctags, node, tree-sitter CLI, treesitter parsers, Nerd Font). Flags: `--python`, `--clojure`, `--go` for language-specific extras. |
-| `nvim/scripts/update.sh` | Update nvim binary and all submodule plugins to latest, then commit pinned SHAs. |
-| `nvim/scripts/copy-to.sh [user@host]` | Rsync the full config to a remote machine. |
-| `nvim/scripts/package.sh` | Create a self-contained `.tar.gz` for distribution. |
-| `nvim/scripts/copy-from.sh` | Pull config back from a remote machine. |
+| `install_nvim.sh` | Pull latest nvim submodule → symlink → update all plugins → commit SHAs. Called by `install.sh`. Pass `--nvim` to `install.sh` to also run system deps. |
+| `nvim/scripts/install.sh` | Install system deps (ctags, node, tree-sitter, parsers, Nerd Font). Flags: `--python`, `--clojure`, `--go`. |
+| `nvim/scripts/update.sh` | Update nvim binary + plugins, commit to nvim repo, bump dotfiles pointer. Called by `update.sh`. |
+| `nvim/scripts/package.sh` | Create a self-contained `.tar.gz` for distribution without git access. |
+| `nvim/scripts/common.sh` | Same helpers as `common.sh` — sourced by nvim scripts for standalone use. |
 
 ### Guidelines
 
-- **Plugins are submodules**: adding or removing a plugin means `git submodule add/deinit` under `nvim/bundle/`, not copying files.
+- **nvim is a submodule**: changes to nvim config are committed in `nvim/` and pushed to `charlesg3/nvim.git`. Then dotfiles tracks the new pointer.
+- **Plugins are submodules**: add/remove plugins with `git submodule add/deinit` under `nvim/bundle/`.
 - **Prefer editing `nvim/init.vim`** for global config. Use `nvim/after/ftplugin/<ft>.lua` for filetype-specific Lua.
 
 ### Custom configurations
 
-- **Taglist / outline** (`<C-e>`): toggles a symbol outline sidebar. Uses universal-ctags with custom settings for Clojure and Markdown. For YAML files overridden in `nvim/after/ftplugin/yaml.lua` with a treesitter-based outline.
-- **nvim-tree** (`<C-t>`): file explorer; `update_focused_file` keeps tree in sync with current file.
+- **Taglist / outline** (`<C-e>`): symbol outline sidebar via universal-ctags. YAML overridden in `after/ftplugin/yaml.lua` with a treesitter outline.
+- **nvim-tree** (`<C-t>`): file explorer; always synced to current file.
 - **EasyMotion** (`s`): 2-char jump to any visible location across all panes.
 - **render-markdown**: rich Markdown rendering in normal mode.
-- **ALE**: linting on save (not on text change). LSP navigation via `gd`, `gr`, `gh`.
-- **Clojure / REPL**: fireplace + paredit. `<C-s>e` sends s-expression to REPL; `<C-s>s` sends visual selection.
+- **ALE**: linting on save. LSP navigation via `gd`, `gr`, `gh`.
+- **Clojure / REPL**: fireplace + paredit. `<C-s>e` sends s-expression; `<C-s>s` sends selection.
 - **Treesitter parsers**: installed to `~/.local/share/nvim/site/parser/`. Currently: `markdown`, `markdown_inline`, `yaml`.
 
 ### Keymap reference
 
-`nvim/doc/keymap.md` is the human-readable keymap reference, opened with `km` inside nvim. **Regenerate it whenever key bindings change.**
+`nvim/doc/keymap.md` — opened with `km` inside nvim. Regenerate whenever key bindings change.

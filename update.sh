@@ -225,7 +225,19 @@ fi
 
 # ── Nvim ──────────────────────────────────────────────────────────────────────
 
-if [ -d "$DOTFILES/nvim/bundle" ]; then
+if [ -d "$DOTFILES/nvim" ]; then
+    nvim_before="$(git -C "$DOTFILES/nvim" rev-parse --short HEAD 2>/dev/null || echo "")"
+    _spin "nvim config"
+    git -C "$DOTFILES" submodule update --remote -- nvim 2>/dev/null || true
+    nvim_after="$(git -C "$DOTFILES/nvim" rev-parse --short HEAD 2>/dev/null || echo "?")"
+    _clear_spin
+    if [[ -n "$nvim_before" && "$nvim_before" != "$nvim_after" ]]; then
+        ok "nvim config ${DIM}$nvim_after${RESET} ${DIM}(was $nvim_before)${RESET}"
+        git -C "$DOTFILES" add nvim
+        git -C "$DOTFILES" commit -m "chore: bump nvim ($(date +%Y-%m-%d))" 2>/dev/null || true
+    else
+        ok "nvim config ${DIM}$nvim_after${RESET}"
+    fi
     bash "$DOTFILES/nvim/scripts/update.sh"
 fi
 

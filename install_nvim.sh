@@ -36,11 +36,17 @@ done
 
 header "Nvim config"
 
-_spin "nvim"
-git -C "$DOTFILES" submodule update --init -- nvim 2>/dev/null
-_clear_spin; ok "nvim"
-
 NVIM_DIR="$DOTFILES/nvim"
+nvim_before="$(git -C "$NVIM_DIR" rev-parse --short HEAD 2>/dev/null || echo "")"
+_spin "nvim"
+git -C "$DOTFILES" submodule update --init --remote -- nvim 2>/dev/null
+nvim_after="$(git -C "$NVIM_DIR" rev-parse --short HEAD 2>/dev/null || echo "?")"
+_clear_spin
+if [[ -z "$nvim_before" || "$nvim_before" == "$nvim_after" ]]; then
+    ok "nvim ${DIM}$nvim_after${RESET}"
+else
+    ok "nvim ${DIM}$nvim_after${RESET} ${DIM}(was $nvim_before)${RESET}"
+fi
 
 # Symlink ~/.config/nvim → dotfiles/nvim
 CONFIG_NVIM="$HOME/.config/nvim"
@@ -91,8 +97,13 @@ if [[ ${#updated_plugins[@]} -gt 0 ]]; then
 
 Updated: $plugin_list" 2>/dev/null || true
     git -C "$DOTFILES" add nvim
-    git -C "$DOTFILES" commit -m "chore: bump nvim plugins ($(date +%Y-%m-%d))" 2>/dev/null || true
+    git -C "$DOTFILES" commit -m "chore: bump nvim ($(date +%Y-%m-%d))" 2>/dev/null || true
     _clear_spin; ok "committed ${#updated_plugins[@]} plugin update(s)"
+elif [[ "$nvim_before" != "$nvim_after" ]]; then
+    _spin "committing nvim update"
+    git -C "$DOTFILES" add nvim
+    git -C "$DOTFILES" commit -m "chore: bump nvim ($(date +%Y-%m-%d))" 2>/dev/null || true
+    _clear_spin; ok "committed nvim update"
 fi
 
 # ── Nvim dependencies ─────────────────────────────────────────────────────────
