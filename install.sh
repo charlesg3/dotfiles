@@ -184,7 +184,8 @@ if command -v claude &>/dev/null; then
     tmp=$(mktemp)
     jq --slurpfile h "$DOTFILES/claude/hooks.json" \
        --slurpfile s "$DOTFILES/claude/statusline.json" \
-       '. * $h[0] * $s[0]' "$CLAUDE_SETTINGS" > "$tmp" \
+       --slurpfile p "$DOTFILES/claude/permissions.json" \
+       '. * $h[0] * $s[0] * $p[0]' "$CLAUDE_SETTINGS" > "$tmp" \
         && mv "$tmp" "$CLAUDE_SETTINGS" && ok "~/.claude/settings.json"
 fi
 
