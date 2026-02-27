@@ -6,6 +6,10 @@ Personal shell and tool configuration files for macOS and Linux.
 
 This repo manages dotfiles and installs CLI tools via `install.sh`. It symlinks configs for zsh, bash, git, kitty, and nvim.
 
+## Commits
+
+- Do not add `Co-Authored-By: Claude` or any AI attribution to commit messages.
+
 ## Philosophy
 
 - **Always up to date**: `install.sh` and `update.sh` pull the latest versions of everything — packages, submodules, and tools. Prefer `--remote` submodule updates over pinned SHAs.

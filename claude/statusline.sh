@@ -36,8 +36,9 @@ fi
 
 [ "${PCT:-0}" -ge 90 ] && BAR_COLOR="$RED" || { [ "${PCT:-0}" -ge 70 ] && BAR_COLOR="$YELLOW" || BAR_COLOR="$LIME"; }
 FILLED=$(( ${PCT:-0} / 10 )); EMPTY=$((10 - FILLED))
-BAR="${BAR_COLOR}$(printf "%${FILLED}s" | tr ' ' '█')${RESET}${DIM}$(printf "%${EMPTY}s" | tr ' ' '░')${RESET}"
-BAR_PLAIN="$(printf "%${FILLED}s" | tr ' ' '█')$(printf "%${EMPTY}s" | tr ' ' '░')"
+_rep() { local s="$1" n="$2" r=""; for ((i=0; i<n; i++)); do r+="$s"; done; printf '%s' "$r"; }
+BAR="${BAR_COLOR}$(_rep '█' "$FILLED")${RESET}${DIM}$(_rep '░' "$EMPTY")${RESET}"
+BAR_PLAIN="$(_rep '█' "$FILLED")$(_rep '░' "$EMPTY")"
 
 # ── Cost and duration ────────────────────────────────────────────────────────
 

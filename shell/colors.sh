@@ -82,15 +82,17 @@ ANSI_WARN="$(_ansi_fg "$COLOR_WARN")"
 ANSI_ERR="$(_ansi_fg "$COLOR_ERR")"
 ANSI_HEADER="$(_ansi_fg "$COLOR_HEADER")"
 
-# Bash PS1 tokens — same ANSI codes wrapped in \[...\] for readline
-_PS_RESET='\[\033[0m\]'
-_PS_PROMPT_OK="\[$(_ansi_fg "$COLOR_PROMPT_OK")\]"
-_PS_PROMPT_ERR="\[$(_ansi_fg "$COLOR_PROMPT_ERR")\]"
-_PS_PROMPT_USER="\[$(_ansi_fg "$COLOR_PROMPT_USER")\]"
-_PS_PROMPT_SEP="\[$(_ansi_fg "$COLOR_PROMPT_SEP")\]"
-_PS_PROMPT_HOST="\[$(_ansi_fg "$COLOR_PROMPT_HOST")\]"
-_PS_PROMPT_DIR="\[$(_ansi_fg "$COLOR_PROMPT_DIR")\]"
-_PS_PROMPT_DOLLAR="\[$(_ansi_fg "$COLOR_PROMPT_DOLLAR")\]"
+# Bash PS1 tokens — ANSI codes wrapped in \001/\002 (readline non-printing markers).
+# Using $'\001'/$'\002' (actual SOH/STX bytes) instead of \[/\] so they work
+# correctly even when the variable is echoed inside a $() subshell in PS1.
+_PS_RESET=$'\001\033[0m\002'
+_PS_PROMPT_OK=$'\001'"$(_ansi_fg "$COLOR_PROMPT_OK")"$'\002'
+_PS_PROMPT_ERR=$'\001'"$(_ansi_fg "$COLOR_PROMPT_ERR")"$'\002'
+_PS_PROMPT_USER=$'\001'"$(_ansi_fg "$COLOR_PROMPT_USER")"$'\002'
+_PS_PROMPT_SEP=$'\001'"$(_ansi_fg "$COLOR_PROMPT_SEP")"$'\002'
+_PS_PROMPT_HOST=$'\001'"$(_ansi_fg "$COLOR_PROMPT_HOST")"$'\002'
+_PS_PROMPT_DIR=$'\001'"$(_ansi_fg "$COLOR_PROMPT_DIR")"$'\002'
+_PS_PROMPT_DOLLAR=$'\001'"$(_ansi_fg "$COLOR_PROMPT_DOLLAR")"$'\002'
 
 # Zsh PROMPT tokens — %F{#hex} uses hex directly (requires zsh 5.7+)
 ZSH_PROMPT_RESET='%f'
