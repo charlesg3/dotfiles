@@ -15,7 +15,7 @@ DURA=$(echo "$input"       | jq -r '.cost.total_duration_ms // 0')
 # shellcheck source=../shell/colors.sh
 source "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../shell/colors.sh"
 LIME="$ANSI_OK"; GREEN="$ANSI_OK"; YELLOW="$ANSI_WARN"; RED="$ANSI_ERR"
-BLUE="$(_ansi_fg "$COLOR_INFO")"; PURPLE="$(_ansi_fg "$COLOR_TAG")"
+BLUE="$(_ansi_fg "$COLOR_INFO")"; PURPLE="$(_ansi_fg "$COLOR_BRANCH")"
 DIM="$ANSI_DIM"; RESET="$ANSI_RESET"
 
 # ── Working / ready ──────────────────────────────────────────────────────────
@@ -116,4 +116,4 @@ PAD=$(( COLS - LW - RW - 4 ))
 
 # ── Output ────────────────────────────────────────────────────────────────────
 
-printf '%b%*s%b' "$L" "$PAD" "" "$R"
+printf '%b%*s%b ' "$L" "$PAD" "" "$R"
