@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Code status line — single line, left/right sections
-#   LEFT:  [⠋ | ○ 42s]  📁 dirname   🌿 branch  +N ~N
+#   LEFT:  [⠋ | ● 42s]  📁 dirname   🌿 branch  +N ~N
 #   RIGHT: ▓▓░░░░░░░░  12%   💰 $0.04   ⏱️ 2m 15s
 
 input=$(cat)
@@ -14,25 +14,30 @@ DURA=$(echo "$input"       | jq -r '.cost.total_duration_ms // 0')
 GREEN='\033[32m'; YELLOW='\033[33m'; RED='\033[31m'; DIM='\033[2m'; RESET='\033[0m'
 
 # ── Spinner / ready ──────────────────────────────────────────────────────────
+# Counter-based: each statusline call advances the frame, so it actually animates
+# during streaming (called per token) rather than relying on wall-clock seconds.
 
 SPINNERS=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
 if [ -n "$SESSION_ID" ] && [ -f "/tmp/claude-start-${SESSION_ID}" ]; then
-    FRAME=$(( $(date +%s) % 10 ))
+    SPIN_FILE="/tmp/claude-sl-spin-${SESSION_ID}"
+    FRAME=$(( ($(cat "$SPIN_FILE" 2>/dev/null || echo 0) + 1) % 10 ))
+    printf '%s' "$FRAME" > "$SPIN_FILE"
     STATE="${SPINNERS[$FRAME]}"
     STATE_PLAIN="${SPINNERS[$FRAME]}"
 else
     LAST=""
     [ -n "$SESSION_ID" ] && [ -f "/tmp/claude-last-time-${SESSION_ID}" ] \
         && LAST=" $(cat "/tmp/claude-last-time-${SESSION_ID}")"
-    STATE="${DIM}○${LAST}${RESET}"
-    STATE_PLAIN="○${LAST}"
+    STATE="${GREEN}●${LAST}${RESET}"
+    STATE_PLAIN="●${LAST}"
 fi
 
-# ── Context bar ──────────────────────────────────────────────────────────────
+# ── Context bar (green < 70%, yellow 70–89%, red ≥ 90%) ─────────────────────
 
 [ "$PCT" -ge 90 ] && BAR_COLOR="$RED" || { [ "$PCT" -ge 70 ] && BAR_COLOR="$YELLOW" || BAR_COLOR="$GREEN"; }
 FILLED=$((PCT / 10)); EMPTY=$((10 - FILLED))
-BAR="$(printf "%${FILLED}s" | tr ' ' '█')$(printf "%${EMPTY}s" | tr ' ' '░')"
+BAR="${BAR_COLOR}$(printf "%${FILLED}s" | tr ' ' '█')${RESET}${DIM}$(printf "%${EMPTY}s" | tr ' ' '░')${RESET}"
+BAR_PLAIN="$(printf "%${FILLED}s" | tr ' ' '█')$(printf "%${EMPTY}s" | tr ' ' '░')"
 
 # ── Cost and duration ────────────────────────────────────────────────────────
 
@@ -71,8 +76,8 @@ fi
 
 # ── Right: ▓▓░░░░░░░░  12%   💰 $0.04   ⏱️ 2m 15s ──────────────────────────
 
-R="${BAR_COLOR}${BAR}${RESET}  ${PCT}%   ${YELLOW}💰 ${COST_FMT}${RESET}   ⏱️ ${MINS}m ${SECS}s"
-RP="${BAR}  ${PCT}%   💰 ${COST_FMT}   ⏱️ ${MINS}m ${SECS}s"
+R="${BAR}  ${PCT}%   ${YELLOW}💰 ${COST_FMT}${RESET}   ⏱️ ${MINS}m ${SECS}s"
+RP="${BAR_PLAIN}  ${PCT}%   💰 ${COST_FMT}   ⏱️ ${MINS}m ${SECS}s"
 
 # ── Padding (python for correct emoji/wide-char width) ───────────────────────
 
