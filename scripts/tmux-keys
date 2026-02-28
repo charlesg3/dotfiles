@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Show the tmux keymap reference
+
+DOTFILES="$(cd "$(dirname "$0")/.." && pwd)"
+KEYMAP="$DOTFILES/tmux/keymap.md"
+
+if command -v glow &>/dev/null; then
+    glow "$KEYMAP"
+elif command -v bat &>/dev/null; then
+    bat --paging=never --style=plain "$KEYMAP"
+elif command -v batcat &>/dev/null; then
+    batcat --paging=never --style=plain "$KEYMAP"
+else
+    cat "$KEYMAP"
+fi

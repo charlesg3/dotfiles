@@ -11,7 +11,7 @@ command -v colordiff &>/dev/null && alias diff='colordiff'
 unalias cat 2>/dev/null
 cat() {
     if [[ "$1" == *.md ]] && command -v glow &>/dev/null; then
-        glow --style ~/src/dotfiles/shell/glamour.json --width "${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}" "$@" | sed 's/[[:space:]]*$//'
+        glow --style ~/src/dotfiles/shell/glamour.json "$@"
     elif command -v bat &>/dev/null; then
         bat --paging=never --style=plain "$@"
     elif command -v batcat &>/dev/null; then
@@ -38,6 +38,12 @@ alias grep='grep --color=auto'
 alias igrep='grep -i --color=auto'
 alias rgrep='grep -r --color=auto'
 alias irgrep='grep -ri --color=auto'
+
+# tmux session helpers
+# t [name]  — create or attach to a named session (default: "main")
+# tms       — create or attach to a session named after the current directory
+t()   { tmux new-session -As "${1:-main}"; }
+tms() { local name; name="$(basename "$PWD" | tr ' ' '-')"; tmux new-session -As "$name"; }
 
 weather() { curl "wttr.in/${1:-80302}"; }
 alias whatsmyip='curl -s ifconfig.me && echo'
