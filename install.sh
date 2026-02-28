@@ -216,24 +216,24 @@ if command -v claude &>/dev/null; then
        '. * $h[0] * $s[0] * $p[0]' "$CLAUDE_SETTINGS" > "$tmp" \
         && mv "$tmp" "$CLAUDE_SETTINGS" && ok "~/.claude/settings.json"
 
-    # claude-watcher hook dispatcher (if the bundle is present)
-    WATCHER_DIR="$HOME/.config/nvim/bundle/claude-watcher"
-    WATCHER_HOOK_PATH="$WATCHER_DIR/hooks/claude-hook.sh"
-    WATCHER_HOOK_REF="~/.config/nvim/bundle/claude-watcher/hooks/claude-hook.sh"
-    if [[ -f "$WATCHER_HOOK_PATH" ]]; then
-        # Run claude-watcher's own install (dep check + git hooks)
-        bash "$WATCHER_DIR/install.sh" --hooks &>/dev/null
-        ok "claude-watcher install"
+    # claude-status hook dispatcher (if the bundle is present)
+    STATUS_DIR="$HOME/.config/nvim/bundle/claude-status"
+    STATUS_HOOK_PATH="$STATUS_DIR/hooks/claude-hook.sh"
+    STATUS_HOOK_REF="~/.config/nvim/bundle/claude-status/hooks/claude-hook.sh"
+    if [[ -f "$STATUS_HOOK_PATH" ]]; then
+        # Run claude-status's own install (dep check + git hooks)
+        bash "$STATUS_DIR/install.sh" --hooks &>/dev/null
+        ok "claude-status install"
 
-        # Link dotfiles user config (overrides claude-watcher defaults)
-        WATCHER_CFG_DIR="$HOME/.config/claude-watcher"
-        mkdir -p "$WATCHER_CFG_DIR"
-        link "$DOTFILES/claude-watcher/config.json" "$WATCHER_CFG_DIR/config.json"
+        # Link dotfiles user config (overrides claude-status defaults)
+        STATUS_CFG_DIR="$HOME/.config/claude-status"
+        mkdir -p "$STATUS_CFG_DIR"
+        link "$DOTFILES/claude-status/config.json" "$STATUS_CFG_DIR/config.json"
 
         # Register all hook events in ~/.claude/settings.json
-        chmod +x "$WATCHER_HOOK_PATH"
+        chmod +x "$STATUS_HOOK_PATH"
         tmp=$(mktemp)
-        jq --arg h "$WATCHER_HOOK_REF" '
+        jq --arg h "$STATUS_HOOK_REF" '
             def ensure_hook(ev):
                 .hooks[ev] = (
                     [(.hooks[ev] // []) | .[] | select(
@@ -243,7 +243,7 @@ if command -v claude &>/dev/null; then
             ensure_hook("PreToolUse") | ensure_hook("PostToolUse") |
             ensure_hook("Notification") | ensure_hook("Stop") | ensure_hook("SubagentStop")
         ' "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS"
-        ok "claude-watcher hooks"
+        ok "claude-status hooks"
     fi
 fi
 
