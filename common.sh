@@ -16,5 +16,5 @@ updated()     { echo -e "  ${ANSI_UPDATED}↑${RESET} $*"; }
 warn()        { echo -e "  ${YELLOW}~${RESET} $*"; }
 err()         { echo -e "  ${RED}✗${RESET} $*"; }
 header()      { echo -e "\n${BOLD}${HEADER}${*}${RESET}"; }
-_spin()       { printf "  ${DIM}⟳${RESET}  %s..." "$1"; }
+_spin()       { printf "  ${DIM}↻${RESET}  %s..." "$1"; }
 _clear_spin() { printf "\r\033[2K"; }
