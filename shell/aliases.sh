@@ -11,7 +11,17 @@ command -v colordiff &>/dev/null && alias diff='colordiff'
 unalias cat 2>/dev/null
 cat() {
     if [[ "$1" == *.md ]] && command -v glow &>/dev/null; then
-        glow --style ~/src/dotfiles/shell/glamour.json "$@"
+        if [[ "$(uname)" == "Darwin" ]]; then
+            _glamour="$HOME/Library/Preferences/glow/glamour.json"
+        else
+            _glamour="$HOME/.config/glow/glamour.json"
+        fi
+        if [[ ! -f "$_glamour" ]]; then
+            printf '🎨 glamour.json not found — run \033[1mupdate-config\033[0m to generate it\n' >&2
+            command cat "$@"
+            return
+        fi
+        glow --style "$_glamour" "$@"
     elif command -v bat &>/dev/null; then
         bat --paging=never --style=plain "$@"
     elif command -v batcat &>/dev/null; then
