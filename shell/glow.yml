@@ -1,5 +1,5 @@
 # style name or JSON path (default "auto")
-style: "__DOTFILES__/shell/glamour.json"
+style: "__GLOW_CFG_DIR__/glamour.json"
 # mouse support (TUI-mode only)
 mouse: false
 # use pager to display markdown

@@ -11,10 +11,10 @@
     <dict>
       <key>settings</key>
       <dict>
-        <key>background</key>  <string>#1A1B1C</string>
-        <key>foreground</key>  <string>#E6E6E6</string>
-        <key>caret</key>       <string>#FF4B82</string>
-        <key>selection</key>   <string>#31353A</string>
+        <key>background</key>  <string>${PANDA_BG}</string>
+        <key>foreground</key>  <string>${PANDA_FG}</string>
+        <key>caret</key>       <string>${PANDA_CURSOR}</string>
+        <key>selection</key>   <string>${PANDA_SELECTION}</string>
       </dict>
     </dict>
 
@@ -24,7 +24,7 @@
       <key>scope</key><string>comment</string>
       <key>settings</key>
       <dict>
-        <key>foreground</key><string>#676B79</string>
+        <key>foreground</key><string>${PANDA_COMMENT}</string>
         <key>fontStyle</key><string>italic</string>
       </dict>
     </dict>
@@ -34,7 +34,7 @@
       <key>name</key><string>String</string>
       <key>scope</key><string>string, string.quoted, string.template</string>
       <key>settings</key>
-      <dict><key>foreground</key><string>#A8F0A6</string></dict>
+      <dict><key>foreground</key><string>${PANDA_LIME}</string></dict>
     </dict>
 
     <!-- String quotes: match string color -->
@@ -42,7 +42,7 @@
       <key>name</key><string>String Punctuation</string>
       <key>scope</key><string>punctuation.definition.string</string>
       <key>settings</key>
-      <dict><key>foreground</key><string>#A8F0A6</string></dict>
+      <dict><key>foreground</key><string>${PANDA_LIME}</string></dict>
     </dict>
 
     <!-- Punctuation: grey -->
@@ -50,7 +50,7 @@
       <key>name</key><string>Punctuation</string>
       <key>scope</key><string>punctuation</string>
       <key>settings</key>
-      <dict><key>foreground</key><string>#676B79</string></dict>
+      <dict><key>foreground</key><string>${PANDA_COMMENT}</string></dict>
     </dict>
 
     <!-- Parens / brackets / braces -->
@@ -58,7 +58,7 @@
       <key>name</key><string>Punctuation</string>
       <key>scope</key><string>punctuation.section, meta.brace</string>
       <key>settings</key>
-      <dict><key>foreground</key><string>#FF4040</string></dict>
+      <dict><key>foreground</key><string>${PANDA_RED}</string></dict>
     </dict>
 
     <!-- Keyword: control flow -->
@@ -66,7 +66,7 @@
       <key>name</key><string>Keyword</string>
       <key>scope</key><string>keyword.control, keyword.other</string>
       <key>settings</key>
-      <dict><key>foreground</key><string>#FF75B5</string></dict>
+      <dict><key>foreground</key><string>${PANDA_PINK}</string></dict>
     </dict>
 
     <!-- Storage: declarations (const, let, var, class, function, async) -->
@@ -74,7 +74,7 @@
       <key>name</key><string>Storage</string>
       <key>scope</key><string>storage, storage.type, storage.modifier</string>
       <key>settings</key>
-      <dict><key>foreground</key><string>#B1B9F5</string></dict>
+      <dict><key>foreground</key><string>${PANDA_LAVENDER}</string></dict>
     </dict>
 
     <!-- Import / preprocessor -->
@@ -82,7 +82,7 @@
       <key>name</key><string>Import</string>
       <key>scope</key><string>meta.preprocessor, keyword.control.import, keyword.control.export, keyword.control.from, keyword.control.use, keyword.other.import</string>
       <key>settings</key>
-      <dict><key>foreground</key><string>#8CF0E4</string></dict>
+      <dict><key>foreground</key><string>${PANDA_CYAN}</string></dict>
     </dict>
 
     <!-- Operator -->
@@ -90,7 +90,7 @@
       <key>name</key><string>Operator</string>
       <key>scope</key><string>keyword.operator</string>
       <key>settings</key>
-      <dict><key>foreground</key><string>#FFCC95</string></dict>
+      <dict><key>foreground</key><string>${PANDA_LIGHT_ORANGE}</string></dict>
     </dict>
 
     <!-- Function name -->
@@ -98,7 +98,7 @@
       <key>name</key><string>Function</string>
       <key>scope</key><string>entity.name.function, meta.function-call, support.function, variable.function</string>
       <key>settings</key>
-      <dict><key>foreground</key><string>#6FC1FF</string></dict>
+      <dict><key>foreground</key><string>${PANDA_BLUE}</string></dict>
     </dict>
 
     <!-- Class / Type -->
@@ -106,7 +106,7 @@
       <key>name</key><string>Class, Type</string>
       <key>scope</key><string>entity.name.class, entity.name.type, support.class, support.type</string>
       <key>settings</key>
-      <dict><key>foreground</key><string>#B084EB</string></dict>
+      <dict><key>foreground</key><string>${PANDA_PURPLE}</string></dict>
     </dict>
 
     <!-- Tag -->
@@ -114,7 +114,7 @@
       <key>name</key><string>Tag</string>
       <key>scope</key><string>entity.name.tag</string>
       <key>settings</key>
-      <dict><key>foreground</key><string>#B084EB</string></dict>
+      <dict><key>foreground</key><string>${PANDA_PURPLE}</string></dict>
     </dict>
 
     <!-- Attribute name -->
@@ -122,7 +122,7 @@
       <key>name</key><string>Attribute</string>
       <key>scope</key><string>entity.other.attribute-name</string>
       <key>settings</key>
-      <dict><key>foreground</key><string>#FF75B5</string></dict>
+      <dict><key>foreground</key><string>${PANDA_PINK}</string></dict>
     </dict>
 
     <!-- Constant / Number -->
@@ -130,7 +130,7 @@
       <key>name</key><string>Constant</string>
       <key>scope</key><string>constant.numeric, constant.language, constant.other</string>
       <key>settings</key>
-      <dict><key>foreground</key><string>#FFB86C</string></dict>
+      <dict><key>foreground</key><string>${PANDA_ORANGE}</string></dict>
     </dict>
 
     <!-- Variable -->
@@ -138,7 +138,7 @@
       <key>name</key><string>Variable</string>
       <key>scope</key><string>variable, variable.other</string>
       <key>settings</key>
-      <dict><key>foreground</key><string>#FFCC95</string></dict>
+      <dict><key>foreground</key><string>${PANDA_LIGHT_ORANGE}</string></dict>
     </dict>
 
     <!-- Language variable (this, self, super) -->
@@ -146,7 +146,7 @@
       <key>name</key><string>Language Variable</string>
       <key>scope</key><string>variable.language</string>
       <key>settings</key>
-      <dict><key>foreground</key><string>#6FC1FF</string></dict>
+      <dict><key>foreground</key><string>${PANDA_BLUE}</string></dict>
     </dict>
 
     <!-- Escape sequence -->
@@ -154,7 +154,7 @@
       <key>name</key><string>Escape</string>
       <key>scope</key><string>constant.character.escape, string.regexp</string>
       <key>settings</key>
-      <dict><key>foreground</key><string>#45A9F9</string></dict>
+      <dict><key>foreground</key><string>${PANDA_LIGHT_BLUE}</string></dict>
     </dict>
 
   </array>

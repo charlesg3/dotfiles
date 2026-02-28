@@ -22,6 +22,7 @@ cat() {
 }
 
 # eza overrides for ls/ll (must come after initial ls alias)
+export EZA_CONFIG_DIR="$HOME/.config/eza"
 command -v eza &>/dev/null && alias ls='eza --color=always --icons=auto' && alias ll='eza -l --color=always --icons=auto --git'
 
 # Clipboard (Linux only — macOS has pbcopy/pbpaste built in)
