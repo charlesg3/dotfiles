@@ -11,13 +11,15 @@
 # ── 1. Raw palette ────────────────────────────────────────────────────────────
 PANDA_BG="#1A1B1C"
 PANDA_FG="#E6E6E6"
-PANDA_RED="#FF4040"             # pure red (prompt separator)
+PANDA_RED="#C91614"             # pure red
 PANDA_HOT_PINK="#FF2C6D"       # bright magenta-red / error
+PANDA_ROSE="#FC6E81"            # soft pinkish-red (prompt separator)
 PANDA_PINK="#FF75B5"            # keywords
 PANDA_LIGHT_PINK="#FF9AC1"     # keyword variants / bright magenta
 PANDA_CURSOR="#FF4B82"          # cursor
 PANDA_CYAN="#8CF0E4"            # strings (pale mint)
-PANDA_LIME="#A8F0A6"            # prompt / UI accents (lime green)
+PANDA_GREEN="#55B96D"           # success green
+PANDA_LIME="#A8F0A6"            # lime green (strings / syntax)
 PANDA_BLUE="#6FC1FF"            # functions / bright blue
 PANDA_LIGHT_BLUE="#45A9F9"     # escape chars / tags
 PANDA_ORANGE="#FFB86C"          # constants
@@ -46,7 +48,7 @@ COLOR_WARNING="$PANDA_ORANGE"
 COLOR_INFO="$PANDA_BLUE"
 
 # Shell UI
-COLOR_OK="$PANDA_LIME"          # ✓ success
+COLOR_OK="$PANDA_GREEN"         # ✓ success
 COLOR_UPDATED="$PANDA_BLUE"     # ↑ updated
 COLOR_WARN="$PANDA_ORANGE"      # ~ warning
 COLOR_ERR="$PANDA_HOT_PINK"     # ✗ error
@@ -55,11 +57,11 @@ COLOR_HEADER="$PANDA_LAVENDER"  # section headers
 COLOR_DIM="$PANDA_COMMENT"      # secondary text
 
 # Prompt
-COLOR_PROMPT_OK="$PANDA_LIME"          # ▸ on success
+COLOR_PROMPT_OK="$PANDA_GREEN"         # ▸ on success
 COLOR_PROMPT_ERR="$PANDA_HOT_PINK"    # ▸ on error
-COLOR_PROMPT_USER="$PANDA_LIME"
-COLOR_PROMPT_SEP="$PANDA_RED"          # @ separator (pure red)
-COLOR_PROMPT_HOST="$PANDA_LIME"
+COLOR_PROMPT_USER="$PANDA_GREEN"
+COLOR_PROMPT_SEP="$PANDA_ROSE"         # @ separator
+COLOR_PROMPT_HOST="$PANDA_GREEN"
 COLOR_PROMPT_DIR="$PANDA_BLUE"
 COLOR_PROMPT_DOLLAR="$PANDA_ORANGE"
 
