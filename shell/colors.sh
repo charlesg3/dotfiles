@@ -51,7 +51,7 @@ COLOR_UPDATED="$PANDA_BLUE"     # ↑ updated
 COLOR_WARN="$PANDA_ORANGE"      # ~ warning
 COLOR_ERR="$PANDA_HOT_PINK"     # ✗ error
 COLOR_EMPH="$PANDA_LAVENDER"    # emphasis!
-COLOR_HEADER="$PANDA_PINK"      # section headers
+COLOR_HEADER="$PANDA_LAVENDER"  # section headers
 COLOR_DIM="$PANDA_COMMENT"      # secondary text
 
 # Prompt
