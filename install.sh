@@ -57,6 +57,13 @@ link() {
     ok "$dst"
 }
 
+_gen() {
+    # Substitute ${PANDA_*} variables from colors.sh into a template file.
+    local tmpl="$1" dst="$2"
+    (set -a; source "$DOTFILES/shell/colors.sh"; envsubst < "$tmpl" > "$dst")
+    ok "$(basename "$dst")"
+}
+
 # ── Self-update ───────────────────────────────────────────────────────────────
 
 header "Dotfiles"
@@ -99,9 +106,10 @@ install_pkg ncdu
 install_pkg colordiff
 install_pkg bat
 install_pkg eza
+install_pkg gettext
 BAT_THEMES_DIR="$HOME/.config/bat/themes"
 mkdir -p "$BAT_THEMES_DIR"
-link "$DOTFILES/shell/panda.tmTheme" "$BAT_THEMES_DIR/Panda.tmTheme"
+_gen "$DOTFILES/shell/panda.tmTheme.tmpl" "$BAT_THEMES_DIR/Panda.tmTheme"
 command -v bat     &>/dev/null && bat     cache --build &>/dev/null && ok "bat theme"
 command -v batcat  &>/dev/null && batcat  cache --build &>/dev/null && ok "batcat theme"
 install_pkg tmux
@@ -128,7 +136,14 @@ if [[ "$(uname)" == "Darwin" ]]; then
 else
     GLOW_CFG="$HOME/.config/glow/glow.yml"
 fi
-sed "s|__DOTFILES__|$DOTFILES|" "$DOTFILES/shell/glow.yml" > "$GLOW_CFG" && ok "$GLOW_CFG"
+GLOW_CFG_DIR="$(dirname "$GLOW_CFG")"
+mkdir -p "$GLOW_CFG_DIR"
+_gen "$DOTFILES/shell/glamour.json.tmpl" "$GLOW_CFG_DIR/glamour.json"
+sed "s|__GLOW_CFG_DIR__|$GLOW_CFG_DIR|" "$DOTFILES/shell/glow.yml" > "$GLOW_CFG" && ok "$GLOW_CFG"
+
+EZA_CFG_DIR="$HOME/.config/eza"
+mkdir -p "$EZA_CFG_DIR"
+_gen "$DOTFILES/eza/theme.yml.tmpl" "$EZA_CFG_DIR/theme.yml"
 
 # ── Terminal ──────────────────────────────────────────────────────────────────
 

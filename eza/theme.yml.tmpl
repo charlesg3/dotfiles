@@ -1,0 +1,105 @@
+colourful: true
+
+# Panda theme for eza — generated from shell/colors.sh via envsubst
+# Edit eza/theme.yml.tmpl in dotfiles, not this file directly.
+
+filekinds:
+  normal:       {foreground: "${PANDA_FG}"}
+  directory:    {foreground: "${PANDA_BLUE}"}
+  symlink:      {foreground: "${PANDA_LIGHT_BLUE}"}
+  pipe:         {foreground: "${PANDA_COMMENT}"}
+  block_device: {foreground: "${PANDA_ORANGE}"}
+  char_device:  {foreground: "${PANDA_LIGHT_ORANGE}"}
+  socket:       {foreground: "${PANDA_PURPLE}"}
+  special:      {foreground: "${PANDA_PURPLE}"}
+  executable:   {foreground: "${PANDA_GREEN}"}
+  mount_point:  {foreground: "${PANDA_CYAN}"}
+
+perms:
+  user_read:          {foreground: "${PANDA_LIME}"}
+  user_write:         {foreground: "${PANDA_ORANGE}"}
+  user_execute_file:  {foreground: "${PANDA_GREEN}"}
+  user_execute_other: {foreground: "${PANDA_GREEN}"}
+  group_read:         {foreground: "${PANDA_COMMENT}"}
+  group_write:        {foreground: "${PANDA_COMMENT}"}
+  group_execute:      {foreground: "${PANDA_COMMENT}"}
+  other_read:         {foreground: "${PANDA_COMMENT}"}
+  other_write:        {foreground: "${PANDA_HOT_PINK}"}
+  other_execute:      {foreground: "${PANDA_COMMENT}"}
+  special_user_file:  {foreground: "${PANDA_HOT_PINK}"}
+  special_other:      {foreground: "${PANDA_ORANGE}"}
+  attribute:          {foreground: "${PANDA_COMMENT}"}
+
+size:
+  major:       {foreground: "${PANDA_LAVENDER}"}
+  minor:       {foreground: "${PANDA_COMMENT}"}
+  number_byte: {foreground: "${PANDA_COMMENT}"}
+  number_kilo: {foreground: "${PANDA_FG}"}
+  number_mega: {foreground: "${PANDA_ORANGE}"}
+  number_giga: {foreground: "${PANDA_PINK}"}
+  number_huge: {foreground: "${PANDA_HOT_PINK}"}
+  unit_byte:   {foreground: "${PANDA_COMMENT}"}
+  unit_kilo:   {foreground: "${PANDA_COMMENT}"}
+  unit_mega:   {foreground: "${PANDA_ORANGE}"}
+  unit_giga:   {foreground: "${PANDA_PINK}"}
+  unit_huge:   {foreground: "${PANDA_HOT_PINK}"}
+
+users:
+  user_you:    {foreground: "${PANDA_GREEN}"}
+  user_root:   {foreground: "${PANDA_HOT_PINK}"}
+  user_other:  {foreground: "${PANDA_COMMENT}"}
+  group_yours: {foreground: "${PANDA_LIGHT_BLUE}"}
+  group_other: {foreground: "${PANDA_COMMENT}"}
+  group_root:  {foreground: "${PANDA_HOT_PINK}"}
+
+links:
+  normal:          {foreground: "${PANDA_LIGHT_BLUE}"}
+  multi_link_file: {foreground: "${PANDA_BLUE}"}
+
+git:
+  new:        {foreground: "${PANDA_GREEN}"}
+  modified:   {foreground: "${PANDA_ORANGE}"}
+  deleted:    {foreground: "${PANDA_HOT_PINK}"}
+  renamed:    {foreground: "${PANDA_BLUE}"}
+  typechange: {foreground: "${PANDA_PURPLE}"}
+  ignored:    {foreground: "${PANDA_COMMENT}"}
+  conflicted: {foreground: "${PANDA_PINK}"}
+
+git_repo:
+  branch_main:  {foreground: "${PANDA_LAVENDER}"}
+  branch_other: {foreground: "${PANDA_BLUE}"}
+  git_clean:    {foreground: "${PANDA_GREEN}"}
+  git_dirty:    {foreground: "${PANDA_ORANGE}"}
+
+security_context:
+  colon: {foreground: "${PANDA_COMMENT}"}
+  user:  {foreground: "${PANDA_BLUE}"}
+  role:  {foreground: "${PANDA_PURPLE}"}
+  typ:   {foreground: "${PANDA_CYAN}"}
+  range: {foreground: "${PANDA_ORANGE}"}
+
+file_type:
+  image:      {foreground: "${PANDA_PINK}"}
+  video:      {foreground: "${PANDA_HOT_PINK}"}
+  music:      {foreground: "${PANDA_CYAN}"}
+  lossless:   {foreground: "${PANDA_LIGHT_BLUE}"}
+  crypto:     {foreground: "${PANDA_ORANGE}"}
+  document:   {foreground: "${PANDA_FG}"}
+  compressed: {foreground: "${PANDA_PURPLE}"}
+  temp:       {foreground: "${PANDA_COMMENT}"}
+  compiled:   {foreground: "${PANDA_COMMENT}"}
+  build:      {foreground: "${PANDA_LIGHT_ORANGE}"}
+  source:     {foreground: "${PANDA_LIME}"}
+
+punctuation:         {foreground: "${PANDA_COMMENT}"}
+date:                {foreground: "${PANDA_LIGHT_BLUE}"}
+inode:               {foreground: "${PANDA_COMMENT}"}
+blocks:              {foreground: "${PANDA_COMMENT}"}
+header:              {foreground: "${PANDA_LAVENDER}"}
+octal:               {foreground: "${PANDA_ORANGE}"}
+flags:               {foreground: "${PANDA_PURPLE}"}
+
+symlink_path:        {foreground: "${PANDA_LIGHT_BLUE}"}
+control_char:        {foreground: "${PANDA_HOT_PINK}"}
+broken_symlink:      {foreground: "${PANDA_HOT_PINK}"}
+broken_path_overlay: {foreground: "${PANDA_COMMENT}"}
