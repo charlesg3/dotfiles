@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>name</key>
+  <string>Panda</string>
+  <key>settings</key>
+  <array>
+
+    <!-- Global -->
+    <dict>
+      <key>settings</key>
+      <dict>
+        <key>background</key>  <string>#1A1B1C</string>
+        <key>foreground</key>  <string>#E6E6E6</string>
+        <key>caret</key>       <string>#FF4B82</string>
+        <key>selection</key>   <string>#31353A</string>
+      </dict>
+    </dict>
+
+    <!-- Comment -->
+    <dict>
+      <key>name</key><string>Comment</string>
+      <key>scope</key><string>comment</string>
+      <key>settings</key>
+      <dict>
+        <key>foreground</key><string>#676B79</string>
+        <key>fontStyle</key><string>italic</string>
+      </dict>
+    </dict>
+
+    <!-- String -->
+    <dict>
+      <key>name</key><string>String</string>
+      <key>scope</key><string>string, string.quoted, string.template</string>
+      <key>settings</key>
+      <dict><key>foreground</key><string>#A8F0A6</string></dict>
+    </dict>
+
+    <!-- String quotes: match string color -->
+    <dict>
+      <key>name</key><string>String Punctuation</string>
+      <key>scope</key><string>punctuation.definition.string</string>
+      <key>settings</key>
+      <dict><key>foreground</key><string>#A8F0A6</string></dict>
+    </dict>
+
+    <!-- Punctuation: grey -->
+    <dict>
+      <key>name</key><string>Punctuation</string>
+      <key>scope</key><string>punctuation</string>
+      <key>settings</key>
+      <dict><key>foreground</key><string>#676B79</string></dict>
+    </dict>
+
+    <!-- Parens / brackets / braces -->
+    <dict>
+      <key>name</key><string>Punctuation</string>
+      <key>scope</key><string>punctuation.section, meta.brace</string>
+      <key>settings</key>
+      <dict><key>foreground</key><string>#FF4040</string></dict>
+    </dict>
+
+    <!-- Keyword: control flow -->
+    <dict>
+      <key>name</key><string>Keyword</string>
+      <key>scope</key><string>keyword.control, keyword.other</string>
+      <key>settings</key>
+      <dict><key>foreground</key><string>#FF75B5</string></dict>
+    </dict>
+
+    <!-- Storage: declarations (const, let, var, class, function, async) -->
+    <dict>
+      <key>name</key><string>Storage</string>
+      <key>scope</key><string>storage, storage.type, storage.modifier</string>
+      <key>settings</key>
+      <dict><key>foreground</key><string>#B1B9F5</string></dict>
+    </dict>
+
+    <!-- Import / preprocessor -->
+    <dict>
+      <key>name</key><string>Import</string>
+      <key>scope</key><string>meta.preprocessor, keyword.control.import, keyword.control.export, keyword.control.from, keyword.control.use, keyword.other.import</string>
+      <key>settings</key>
+      <dict><key>foreground</key><string>#8CF0E4</string></dict>
+    </dict>
+
+    <!-- Operator -->
+    <dict>
+      <key>name</key><string>Operator</string>
+      <key>scope</key><string>keyword.operator</string>
+      <key>settings</key>
+      <dict><key>foreground</key><string>#FFCC95</string></dict>
+    </dict>
+
+    <!-- Function name -->
+    <dict>
+      <key>name</key><string>Function</string>
+      <key>scope</key><string>entity.name.function, meta.function-call, support.function, variable.function</string>
+      <key>settings</key>
+      <dict><key>foreground</key><string>#6FC1FF</string></dict>
+    </dict>
+
+    <!-- Class / Type -->
+    <dict>
+      <key>name</key><string>Class, Type</string>
+      <key>scope</key><string>entity.name.class, entity.name.type, support.class, support.type</string>
+      <key>settings</key>
+      <dict><key>foreground</key><string>#B084EB</string></dict>
+    </dict>
+
+    <!-- Tag -->
+    <dict>
+      <key>name</key><string>Tag</string>
+      <key>scope</key><string>entity.name.tag</string>
+      <key>settings</key>
+      <dict><key>foreground</key><string>#B084EB</string></dict>
+    </dict>
+
+    <!-- Attribute name -->
+    <dict>
+      <key>name</key><string>Attribute</string>
+      <key>scope</key><string>entity.other.attribute-name</string>
+      <key>settings</key>
+      <dict><key>foreground</key><string>#FF75B5</string></dict>
+    </dict>
+
+    <!-- Constant / Number -->
+    <dict>
+      <key>name</key><string>Constant</string>
+      <key>scope</key><string>constant.numeric, constant.language, constant.other</string>
+      <key>settings</key>
+      <dict><key>foreground</key><string>#FFB86C</string></dict>
+    </dict>
+
+    <!-- Variable -->
+    <dict>
+      <key>name</key><string>Variable</string>
+      <key>scope</key><string>variable, variable.other</string>
+      <key>settings</key>
+      <dict><key>foreground</key><string>#FFCC95</string></dict>
+    </dict>
+
+    <!-- Language variable (this, self, super) -->
+    <dict>
+      <key>name</key><string>Language Variable</string>
+      <key>scope</key><string>variable.language</string>
+      <key>settings</key>
+      <dict><key>foreground</key><string>#6FC1FF</string></dict>
+    </dict>
+
+    <!-- Escape sequence -->
+    <dict>
+      <key>name</key><string>Escape</string>
+      <key>scope</key><string>constant.character.escape, string.regexp</string>
+      <key>settings</key>
+      <dict><key>foreground</key><string>#45A9F9</string></dict>
+    </dict>
+
+  </array>
+  <key>uuid</key>
+  <string>ae1a7f00-b2ad-4e52-b3af-26e9e6583867</string>
+</dict>
+</plist>

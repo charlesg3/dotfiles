@@ -32,11 +32,11 @@ PANDA_SELECTION="#31353A"       # selection background / line highlight
 COLOR_BG="$PANDA_BG"
 COLOR_FG="$PANDA_FG"
 COLOR_KEYWORD="$PANDA_PINK"
-COLOR_STRING="$PANDA_CYAN"
+COLOR_STRING="$PANDA_LIME"
 COLOR_FUNCTION="$PANDA_BLUE"
 COLOR_CONSTANT="$PANDA_ORANGE"
 COLOR_VARIABLE="$PANDA_LIGHT_ORANGE"
-COLOR_OPERATOR="$PANDA_LIGHT_ORANGE"
+COLOR_OPERATOR="$PANDA_LIGHT_COMMENT"
 COLOR_TAG="$PANDA_PURPLE"
 COLOR_BRANCH="$PANDA_LAVENDER"      # git branch / Claude emphasis
 COLOR_ESCAPE="$PANDA_LIGHT_BLUE"
@@ -50,6 +50,7 @@ COLOR_OK="$PANDA_LIME"          # ✓ success
 COLOR_UPDATED="$PANDA_BLUE"     # ↑ updated
 COLOR_WARN="$PANDA_ORANGE"      # ~ warning
 COLOR_ERR="$PANDA_HOT_PINK"     # ✗ error
+COLOR_EMPH="$PANDA_LAVENDER"    # emphasis!
 COLOR_HEADER="$PANDA_PINK"      # section headers
 COLOR_DIM="$PANDA_COMMENT"      # secondary text
 
@@ -106,5 +107,4 @@ ZSH_PROMPT_DOLLAR="%F{$COLOR_PROMPT_DOLLAR}"
 ZSH_PROMPT_FG="%F{$COLOR_FG}"
 
 # ── Tool env vars ─────────────────────────────────────────────────────────────
-export BAT_THEME="ansi"      # inherit terminal's ANSI palette (set in kitty/theme.conf)
-export GLAMOUR_STYLE=~/src/dotfiles/shell/glamour.json
+export BAT_THEME="Panda"

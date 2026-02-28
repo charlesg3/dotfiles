@@ -16,37 +16,44 @@
     "heading": {
         "block_suffix": "\n",
         "bold": true,
-        "color": "#B1B9F5"
+        "underline": true,
+        "color": "#A8F0A6"
     },
     "h1": {
         "block_suffix": "\n",
         "bold": true,
-        "color": "#B1B9F5"
+        "underline": true,
+        "color": "#A8F0A6"
     },
     "h2": {
         "block_suffix": "\n",
         "bold": true,
-        "color": "#B1B9F5"
+        "underline": true,
+        "color": "#A8F0A6"
     },
     "h3": {
         "bold": true,
-        "color": "#B1B9F5"
+        "underline": false,
+        "color": "#02a456"
     },
     "h4": {
         "bold": true,
-        "color": "#B1B9F5"
+        "underline": true,
+        "color": "#A8F0A6"
     },
     "h5": {
         "bold": true,
-        "color": "#B1B9F5"
+        "underline": true,
+        "color": "#A8F0A6"
     },
     "h6": {
         "bold": true,
-        "color": "#B1B9F5"
+        "underline": true,
+        "color": "#A8F0A6"
     },
     "strong": {
         "bold": true,
-        "color": "#FFB86C"
+        "color": "#FC9CC0"
     },
     "emph": {
         "italic": true,
@@ -66,8 +73,7 @@
         "unticked": "○ "
     },
     "code": {
-        "color": "#8CF0E4",
-        "background_color": "#31353A"
+        "color": "#B1B9F5"
     },
     "code_block": {
         "color": "#E6E6E6",
@@ -80,6 +86,8 @@
         "column_separator": "│",
         "row_separator": "─"
     },
+    "table_row": {},
+    "table_cell": {},
     "link": {
         "color": "#6FC1FF",
         "underline": true
