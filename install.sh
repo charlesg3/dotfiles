@@ -99,6 +99,12 @@ install_pkg ncdu
 install_pkg colordiff
 install_pkg bat
 install_pkg eza
+BAT_THEMES_DIR="$HOME/.config/bat/themes"
+mkdir -p "$BAT_THEMES_DIR"
+link "$DOTFILES/shell/panda.tmTheme" "$BAT_THEMES_DIR/Panda.tmTheme"
+command -v bat     &>/dev/null && bat     cache --build &>/dev/null && ok "bat theme"
+command -v batcat  &>/dev/null && batcat  cache --build &>/dev/null && ok "batcat theme"
+install_pkg tmux
 install_pkg expect
 [[ "$(uname)" == "Linux" ]] && install_pkg xclip
 [[ "$(uname)" == "Linux" ]] && install_pkg mpg123
@@ -117,11 +123,18 @@ elif command -v apt-get &>/dev/null; then
     sudo apt-get update -q && sudo apt-get install -y glow
     ok "glow installed"
 fi
+if [[ "$(uname)" == "Darwin" ]]; then
+    GLOW_CFG="$HOME/Library/Preferences/glow/glow.yml"
+else
+    GLOW_CFG="$HOME/.config/glow/glow.yml"
+fi
+sed "s|__DOTFILES__|$DOTFILES|" "$DOTFILES/shell/glow.yml" > "$GLOW_CFG" && ok "$GLOW_CFG"
 
-# ── Kitty ─────────────────────────────────────────────────────────────────────
+# ── Terminal ──────────────────────────────────────────────────────────────────
 
-header "Kitty"
+header "Terminal"
 link "$DOTFILES/kitty/kitty.conf" "$HOME/.config/kitty/kitty.conf"
+link "$DOTFILES/tmux/tmux.conf"   "$HOME/.tmux.conf"
 
 # ── GitHub CLI ────────────────────────────────────────────────────────────────
 

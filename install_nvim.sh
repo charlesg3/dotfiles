@@ -89,6 +89,29 @@ for bundle_path in "$NVIM_DIR/bundle"/*/; do
     fi
 done
 
+# ── Local patches ─────────────────────────────────────────────────────────────
+PATCHES_DIR="$NVIM_DIR/patches"
+if [[ -d "$PATCHES_DIR" ]]; then
+    for bundle_patch_dir in "$PATCHES_DIR"/*/; do
+        [[ -d "$bundle_patch_dir" ]] || continue
+        bundle="$(basename "$bundle_patch_dir")"
+        bundle_path="$NVIM_DIR/bundle/$bundle"
+        [[ -d "$bundle_path" ]] || continue
+        for patch_file in "$bundle_patch_dir"*.patch; do
+            [[ -f "$patch_file" ]] || continue
+            patch_name="$(basename "$patch_file" .patch)"
+            if git -C "$bundle_path" apply --check --reverse "$patch_file" &>/dev/null; then
+                ok "$bundle/$patch_name merged upstream — delete $patch_file"
+            elif git -C "$bundle_path" apply --check "$patch_file" &>/dev/null; then
+                git -C "$bundle_path" apply "$patch_file" &>/dev/null
+                ok "$bundle/$patch_name (patch applied)"
+            else
+                warn "$bundle/$patch_name patch does not apply — manual fix needed"
+            fi
+        done
+    done
+fi
+
 if [[ ${#updated_plugins[@]} -gt 0 ]]; then
     plugin_list="$(IFS=", "; echo "${updated_plugins[*]}")"
     _spin "committing plugin updates"
