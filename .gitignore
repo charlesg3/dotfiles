@@ -1,2 +1,4 @@
 *.bak
 .DS_Store
+shell/panda.tmTheme
+shell/glamour.json
