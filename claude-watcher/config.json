@@ -1,0 +1,13 @@
+{
+  "long_running": {
+    "threshold_seconds": 120
+  },
+  "notifications": {
+    "sound": {
+      "path": "~/src/dotfiles/notification_sounds"
+    },
+    "os": {
+      "long_running_threshold": 180
+    }
+  }
+}

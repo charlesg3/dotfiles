@@ -217,9 +217,20 @@ if command -v claude &>/dev/null; then
         && mv "$tmp" "$CLAUDE_SETTINGS" && ok "~/.claude/settings.json"
 
     # claude-watcher hook dispatcher (if the bundle is present)
-    WATCHER_HOOK_PATH="$HOME/.config/nvim/bundle/claude-watcher/hooks/claude-hook.sh"
+    WATCHER_DIR="$HOME/.config/nvim/bundle/claude-watcher"
+    WATCHER_HOOK_PATH="$WATCHER_DIR/hooks/claude-hook.sh"
     WATCHER_HOOK_REF="~/.config/nvim/bundle/claude-watcher/hooks/claude-hook.sh"
     if [[ -f "$WATCHER_HOOK_PATH" ]]; then
+        # Run claude-watcher's own install (dep check + git hooks)
+        bash "$WATCHER_DIR/install.sh" --hooks &>/dev/null
+        ok "claude-watcher install"
+
+        # Link dotfiles user config (overrides claude-watcher defaults)
+        WATCHER_CFG_DIR="$HOME/.config/claude-watcher"
+        mkdir -p "$WATCHER_CFG_DIR"
+        link "$DOTFILES/claude-watcher/config.json" "$WATCHER_CFG_DIR/config.json"
+
+        # Register all hook events in ~/.claude/settings.json
         chmod +x "$WATCHER_HOOK_PATH"
         tmp=$(mktemp)
         jq --arg h "$WATCHER_HOOK_REF" '
