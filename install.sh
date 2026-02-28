@@ -215,6 +215,25 @@ if command -v claude &>/dev/null; then
        --slurpfile p "$DOTFILES/claude/permissions.json" \
        '. * $h[0] * $s[0] * $p[0]' "$CLAUDE_SETTINGS" > "$tmp" \
         && mv "$tmp" "$CLAUDE_SETTINGS" && ok "~/.claude/settings.json"
+
+    # claude-watcher hook dispatcher (if the bundle is present)
+    WATCHER_HOOK_PATH="$HOME/.config/nvim/bundle/claude-watcher/hooks/claude-hook.sh"
+    WATCHER_HOOK_REF="~/.config/nvim/bundle/claude-watcher/hooks/claude-hook.sh"
+    if [[ -f "$WATCHER_HOOK_PATH" ]]; then
+        chmod +x "$WATCHER_HOOK_PATH"
+        tmp=$(mktemp)
+        jq --arg h "$WATCHER_HOOK_REF" '
+            def ensure_hook(ev):
+                .hooks[ev] = (
+                    [(.hooks[ev] // []) | .[] | select(
+                        .hooks | map(.command) | any(. == $h) | not
+                    )] + [{"hooks":[{"type":"command","command":$h}]}]
+                );
+            ensure_hook("PreToolUse") | ensure_hook("PostToolUse") |
+            ensure_hook("Notification") | ensure_hook("Stop") | ensure_hook("SubagentStop")
+        ' "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS"
+        ok "claude-watcher hooks"
+    fi
 fi
 
 # ── OS-specific ───────────────────────────────────────────────────────────────
