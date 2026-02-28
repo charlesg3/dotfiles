@@ -63,8 +63,8 @@ IFS='|' read -r BRANCH STAGED MODIFIED < "$CACHE"
 
 # ── Left: [state]  📁 dirname   🌿 branch  +N *N ────────────────────────────
 
-L="${STATE}  📁 ${DIR##*/}"
-LP="${STATE_PLAIN}  📁 ${DIR##*/}"
+L="${STATE}   📁 ${DIR##*/}"
+LP="${STATE_PLAIN}   📁 ${DIR##*/}"
 if [ -n "$BRANCH" ]; then
     L="${L}   🌿 ${PURPLE}${BRANCH}${RESET}";  LP="${LP}   🌿 ${BRANCH}"
     if [ "${STAGED:-0}" -gt 0 ]; then
