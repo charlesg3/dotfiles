@@ -212,7 +212,7 @@ if command -v claude &>/dev/null; then
         && mv "$tmp" "$CLAUDE_SETTINGS" && ok "~/.claude/settings.json"
 
     # claude-status hook dispatcher (if the bundle is present)
-    STATUS_DIR="$HOME/.config/nvim/bundle/claude-status"
+    STATUS_DIR="$DOTFILES/nvim/bundle/claude-status"
     STATUS_HOOK_PATH="$STATUS_DIR/hooks/claude-hook.sh"
     STATUS_HOOK_REF="~/.config/nvim/bundle/claude-status/hooks/claude-hook.sh"
     if [[ -f "$STATUS_HOOK_PATH" ]]; then
