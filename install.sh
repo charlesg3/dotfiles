@@ -202,18 +202,13 @@ fi
 
 if command -v claude &>/dev/null; then
     header "Claude Code"
-    link "$DOTFILES/claude/hooks/prompt-start.sh" "$HOME/.claude/hooks/prompt-start.sh"
-    link "$DOTFILES/claude/hooks/stop-notify.sh"  "$HOME/.claude/hooks/stop-notify.sh"
-    link "$DOTFILES/claude/statusline.sh"          "$HOME/.claude/statusline.sh"
 
     CLAUDE_SETTINGS="$HOME/.claude/settings.json"
     mkdir -p "$(dirname "$CLAUDE_SETTINGS")"
     [ -f "$CLAUDE_SETTINGS" ] || echo '{}' > "$CLAUDE_SETTINGS"
     tmp=$(mktemp)
-    jq --slurpfile h "$DOTFILES/claude/hooks.json" \
-       --slurpfile s "$DOTFILES/claude/statusline.json" \
-       --slurpfile p "$DOTFILES/claude/permissions.json" \
-       '. * $h[0] * $s[0] * $p[0]' "$CLAUDE_SETTINGS" > "$tmp" \
+    jq --slurpfile p "$DOTFILES/claude/permissions.json" \
+       '. * $p[0]' "$CLAUDE_SETTINGS" > "$tmp" \
         && mv "$tmp" "$CLAUDE_SETTINGS" && ok "~/.claude/settings.json"
 
     # claude-status hook dispatcher (if the bundle is present)
