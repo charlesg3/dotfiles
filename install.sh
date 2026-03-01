@@ -230,18 +230,20 @@ if command -v claude &>/dev/null; then
         mkdir -p "$STATUS_CFG_DIR"
         link "$DOTFILES/claude-status/config.json" "$STATUS_CFG_DIR/config.json"
 
-        # Register all hook events in ~/.claude/settings.json
+        # Register hook events and statusLine in ~/.claude/settings.json
+        STATUS_STATUSLINE_REF="~/.config/nvim/bundle/claude-status/scripts/statusline.sh"
         chmod +x "$STATUS_HOOK_PATH"
         tmp=$(mktemp)
-        jq --arg h "$STATUS_HOOK_REF" '
+        jq --arg h "$STATUS_HOOK_REF" --arg sl "$STATUS_STATUSLINE_REF" '
             def ensure_hook(ev):
                 .hooks[ev] = (
                     [(.hooks[ev] // []) | .[] | select(
                         .hooks | map(.command) | any(. == $h) | not
                     )] + [{"hooks":[{"type":"command","command":$h}]}]
                 );
-            ensure_hook("PreToolUse") | ensure_hook("PostToolUse") |
-            ensure_hook("Notification") | ensure_hook("Stop") | ensure_hook("SubagentStop")
+            ensure_hook("SessionStart") | ensure_hook("UserPromptSubmit") |
+            ensure_hook("Notification") | ensure_hook("Stop") | ensure_hook("SessionEnd") |
+            .statusLine = {"type":"command","command":$sl}
         ' "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS"
         ok "claude-status hooks"
     fi
