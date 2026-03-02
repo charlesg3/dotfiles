@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# tmux/statusline — assembles the tmux status bar from components
+# Usage: statusline <pane_path> <pane_command>
+
+PANE_PATH="${1:-.}"
+PANE_CMD="${2:-}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+parts=()
+
+# git status — hidden in nvim/claude (those tools show branch/git themselves)
+if [[ ! "$PANE_CMD" =~ ^(nvim|vim|vi|claude)$ ]]; then
+  seg="$("$SCRIPT_DIR/../scripts/git-status-line" "$PANE_PATH")"
+  [[ -n "$seg" ]] && parts+=("$seg")
+fi
+
+printf '%s' "${parts[*]}"

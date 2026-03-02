@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# git-status-line — branch + staged/modified/untracked counts
+# Usage: git-status-line [path]   (pass #{pane_current_path} from tmux)
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../shell/colors.sh"
+
+cd "${1:-.}" 2>/dev/null || exit 0
+
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) || exit 0
+staged=$(git diff --cached --numstat 2>/dev/null | wc -l | tr -d ' ')
+modified=$(git diff --numstat 2>/dev/null | wc -l | tr -d ' ')
+untracked=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
+
+LAVENDER="#[fg=${PANDA_LAVENDER}]"
+ORANGE="#[fg=${PANDA_ORANGE}]"
+DIM="#[fg=${PANDA_COMMENT}]"
+RESET='#[fg=default]'
+
+out="${LAVENDER}🌿 ${branch}${RESET}"
+dirty=""
+[[ "${staged:-0}"   -gt 0 ]] && dirty+="+${staged}"
+[[ "${modified:-0}" -gt 0 ]] && dirty+="${dirty:+ }*${modified}"
+[[ -n "$dirty" ]] && out+="  ${ORANGE}${dirty}${RESET}"
+[[ "${untracked:-0}" -gt 0 ]] && out+="  ${DIM}?${untracked}${RESET}"
+
+printf '%s' "$out"
