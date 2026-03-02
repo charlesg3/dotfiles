@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Opens nvim with a vertical split: editor on the left, Claude in a terminal on the right.
+#
+# Usage:
+#   vim-claude [file ...]
+
+exec nvim "$@" \
+  -c "NvimTreeOpen" \
+  -c "wincmd l" \
+  -c "rightbelow vsplit | terminal claude" \
+  -c "startinsert"
