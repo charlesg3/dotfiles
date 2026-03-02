@@ -22,8 +22,12 @@ shopt -s checkwinsize
 
 # enable color support of ls
 if [ "$TERM" != "dumb" ]; then
-    eval "$(dircolors -b)"
-    alias ls='ls --color=auto'
+    if command -v dircolors &>/dev/null; then
+        eval "$(dircolors -b)"
+        alias ls='ls --color=auto'
+    elif [ "$(uname)" = "Darwin" ]; then
+        alias ls='ls -G'
+    fi
 fi
 
 # BASH_SOURCE resolves to this file; walk up bash/ -> dotfiles/
