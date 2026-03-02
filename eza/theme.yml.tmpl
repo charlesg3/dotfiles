@@ -84,7 +84,7 @@ file_type:
   music:      {foreground: "${PANDA_CYAN}"}
   lossless:   {foreground: "${PANDA_LIGHT_BLUE}"}
   crypto:     {foreground: "${PANDA_ORANGE}"}
-  document:   {foreground: "${PANDA_FG}"}
+  document:   {foreground: "${PANDA_WHEAT}"}
   compressed: {foreground: "${PANDA_PURPLE}"}
   temp:       {foreground: "${PANDA_COMMENT}"}
   compiled:   {foreground: "${PANDA_COMMENT}"}
@@ -103,3 +103,10 @@ symlink_path:        {foreground: "${PANDA_LIGHT_BLUE}"}
 control_char:        {foreground: "${PANDA_HOT_PINK}"}
 broken_symlink:      {foreground: "${PANDA_HOT_PINK}"}
 broken_path_overlay: {foreground: "${PANDA_COMMENT}"}
+
+filenames:
+  README.md:    {filename: {foreground: "${PANDA_LIGHT_ORANGE}", is_bold: true, is_underline: true}}
+  CHANGELOG.md: {filename: {foreground: "${PANDA_LIGHT_ORANGE}", is_bold: true, is_underline: true}}
+
+extensions:
+  md: {filename: {foreground: "${PANDA_WHEAT}"}}
