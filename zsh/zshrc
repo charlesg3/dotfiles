@@ -45,14 +45,12 @@ unset -f _source_if
 [[ -n "$KITTY_INSTALLATION_DIR" ]] && \
     source "$KITTY_INSTALLATION_DIR/shell-integration/zsh/kitty.zsh"
 
-# ── Terminal title (populates b:term_title in nvim's buffer list) ─────────────
-# Kitty's shell integration handles titles for Kitty tabs; this covers nvim terminals.
-if [[ -n "$NVIM" ]]; then
-    _title_preexec() { printf '\033]0;%s\007' "$1" }
-    _title_precmd()  { print -Pn '\033]0;%~\007' }
-    preexec_functions+=(_title_preexec)
-    precmd_functions+=(_title_precmd)
-fi
+# ── Terminal title ────────────────────────────────────────────────────────────
+# Appended after Kitty's shell integration so our hook runs last and wins.
+_title_preexec() { printf '\033]0;%s\007' "$1" }
+_title_precmd()  { print -Pn '\033]0;zsh: %1~\007' }
+preexec_functions+=(_title_preexec)
+precmd_functions+=(_title_precmd)
 
 # ── Long-command bell (shows green dot in kitty tab) ─────────────────────────
 _long_cmd_start=0
