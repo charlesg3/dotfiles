@@ -203,6 +203,8 @@ fi
 if command -v claude &>/dev/null; then
     header "Claude Code"
 
+    link "$DOTFILES/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+
     CLAUDE_SETTINGS="$HOME/.claude/settings.json"
     mkdir -p "$(dirname "$CLAUDE_SETTINGS")"
     [ -f "$CLAUDE_SETTINGS" ] || echo '{}' > "$CLAUDE_SETTINGS"

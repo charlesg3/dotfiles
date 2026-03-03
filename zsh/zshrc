@@ -18,7 +18,12 @@ source "${${(%):-%N}:A:h:h}/shell/aliases.sh"
 
 [[ "$OSTYPE" == "darwin"* ]] && fpath=(/opt/homebrew/share/zsh/site-functions $fpath)
 autoload -Uz compinit
-compinit
+# Only rebuild completions if the dump is older than 24h; otherwise use cache
+if [[ -n ${ZDOTDIR:-$HOME}/.zcompdump(#qN.mh+24) ]]; then
+  compinit
+else
+  compinit -C
+fi
 
 # Prompt (colors from shell/colors.sh → ZSH_PROMPT_* variables)
 # %n = username, %m = hostname, %~ = current working directory
@@ -33,11 +38,13 @@ test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell
 ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=${PANDA_LIME}"
 
 # zsh plugins (must be sourced after compinit; syntax-highlighting must be last)
+_brew_prefix=$(brew --prefix 2>/dev/null)
 _source_if() { [ -f "$1" ] && source "$1"; }
-_source_if "$(brew --prefix 2>/dev/null)/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
+_source_if "$_brew_prefix/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
 _source_if "/usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh"
-_source_if "$(brew --prefix 2>/dev/null)/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+_source_if "$_brew_prefix/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
 _source_if "/usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+unset _brew_prefix
 unset -f _source_if
 
 # ── Kitty shell integration ───────────────────────────────────────────────────
