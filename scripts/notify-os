@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# notify-os TITLE MESSAGE — send a native OS desktop notification.
+# macOS: osascript  /  Linux: notify-send
+
+source "$(dirname "${BASH_SOURCE[0]}")/../shell/lib.sh"
+notify_os "$1" "${2:-}"
