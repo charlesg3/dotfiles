@@ -209,11 +209,7 @@ fi
 
 if [[ "$INSTALL_CLAUDE" == true ]]; then
     header "Claude Code"
-    if command -v npm &>/dev/null; then
-        npm install -g @anthropic-ai/claude-code --quiet && ok "claude $(claude --version 2>/dev/null || true)"
-    else
-        warn "claude: npm not found — run with --node first"
-    fi
+    curl -fsSL https://claude.ai/install.sh | bash && ok "claude $(claude --version 2>/dev/null || true)"
 fi
 
 # ── Claude Code hooks ─────────────────────────────────────────────────────────

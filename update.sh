@@ -255,22 +255,17 @@ fi
 
 # ── Claude Code ───────────────────────────────────────────────────────────────
 
-if command -v claude &>/dev/null && command -v npm &>/dev/null; then
+if command -v claude &>/dev/null; then
     header "Claude Code"
     installed=$(claude --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "")
-    _spin "claude"
-    latest=$(npm view @anthropic-ai/claude-code version 2>/dev/null || echo "")
-    _clear_spin
-    if [[ -z "$latest" ]]; then
-        warn "claude ${DIM}$installed${RESET} (could not check latest)"
-    elif [[ "$installed" == "$latest" ]]; then
-        ok "claude ${DIM}$installed${RESET}"
-    elif [[ "$UPDATE_CLAUDE" == true ]]; then
-        _spin "claude upgrading to $latest"
-        npm install -g @anthropic-ai/claude-code --quiet
-        _clear_spin; ok "claude ${DIM}$installed → $latest${RESET}"
+    if [[ "$UPDATE_CLAUDE" == true ]]; then
+        _spin "claude"
+        curl -fsSL https://claude.ai/install.sh | bash &>/dev/null
+        _clear_spin
+        new=$(claude --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "")
+        [[ "$installed" != "$new" ]] && ok "claude ${DIM}$installed → $new${RESET}" || ok "claude ${DIM}$installed${RESET}"
     else
-        warn "claude: ${YELLOW}$installed → $latest${RESET} available — re-run with --claude to upgrade"
+        ok "claude ${DIM}$installed${RESET} ${DIM}(auto-updates in background)${RESET}"
     fi
 fi
 
