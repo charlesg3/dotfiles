@@ -39,7 +39,7 @@ header "Nvim config"
 NVIM_DIR="$DOTFILES/nvim"
 nvim_before="$(git -C "$NVIM_DIR" rev-parse --short HEAD 2>/dev/null || echo "")"
 _spin "nvim"
-git -C "$DOTFILES" submodule update --init --remote -- nvim 2>/dev/null
+git -C "$DOTFILES" submodule update --init --remote -- nvim 2>/dev/null || true
 nvim_after="$(git -C "$NVIM_DIR" rev-parse --short HEAD 2>/dev/null || echo "?")"
 _clear_spin
 if [[ -z "$nvim_before" || "$nvim_before" == "$nvim_after" ]]; then
