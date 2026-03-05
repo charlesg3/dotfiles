@@ -224,7 +224,7 @@ if command -v claude &>/dev/null; then
     STATUS_HOOK_REF="~/.config/nvim/bundle/claude-status/hooks/claude-hook.sh"
     if [[ -f "$STATUS_HOOK_PATH" ]]; then
         # Run claude-status's own install (dep check + git hooks)
-        bash "$STATUS_DIR/install.sh" --hooks &>/dev/null
+        bash "$STATUS_DIR/install.sh" --hooks &>/dev/null || true
         ok "claude-status install"
 
         # Link dotfiles user config (overrides claude-status defaults)
