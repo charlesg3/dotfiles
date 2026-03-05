@@ -64,6 +64,25 @@ _install_ff_exts() {
     local policy_json
     policy_json="$(printf '{"policies":{"Extensions":{"Install":%s}}}' "$urls_json")"
 
+    # Check if all URLs are already present — policies file is readable without sudo
+    if [[ -f "$policies_file" ]] && command -v jq &>/dev/null; then
+        local all_present=true
+        local url
+        for url in "${FF_EXT_URLS[@]}"; do
+            if ! jq -e --arg u "$url" '.policies.Extensions.Install[]? == $u' "$policies_file" &>/dev/null; then
+                all_present=false
+                break
+            fi
+        done
+        if [[ "$all_present" == "true" ]]; then
+            local name
+            for name in "${FF_EXT_NAMES[@]}"; do
+                ok "$name (already registered)"
+            done
+            return
+        fi
+    fi
+
     local dir
     dir="$(dirname "$policies_file")"
 
@@ -74,7 +93,6 @@ _install_ff_exts() {
         fi
         sudo mkdir -p "$dir"
         if [[ -f "$policies_file" ]] && command -v jq &>/dev/null; then
-            # Merge with existing policies
             local tmp
             tmp="$(mktemp)"
             sudo jq --argjson p "$policy_json" '. * $p' "$policies_file" > "$tmp"
