@@ -72,18 +72,19 @@ declare -A _BREW_VER        # pkg → installed version
 declare -A _BREW_CANDIDATE  # pkg → available upgrade version (absent if up to date)
 
 _brew_preload() {
-    # All installed versions in one call
+    local pkgs=("$@")
+    # Installed versions for only the packages we manage (not all of Homebrew)
     while read -r pkg ver; do
         _BREW_VER["$pkg"]="$ver"
-    done < <(brew list --versions 2>/dev/null | awk '{print $1, $NF}')
+    done < <(brew list --versions "${pkgs[@]}" 2>/dev/null | awk '{print $1, $NF}')
 
-    # All outdated packages in one call; format: "pkg (installed) < candidate"
+    # Outdated status for only the packages we manage
     while IFS= read -r line; do
         local pkg candidate
         pkg=$(awk '{print $1}' <<< "$line")
         candidate=$(awk '{for(i=1;i<=NF;i++) if($i~/^[0-9]+\.[0-9]/) print $i}' <<< "$line" | tail -1)
         [[ -n "$pkg" && -n "$candidate" ]] && _BREW_CANDIDATE["$pkg"]="$candidate"
-    done < <(brew outdated --verbose 2>/dev/null)
+    done < <(brew outdated --verbose "${pkgs[@]}" 2>/dev/null)
 }
 
 _brew_update() {
@@ -112,7 +113,7 @@ if command -v brew &>/dev/null; then
     header "Homebrew"
     _spin "fetching updates"
     brew update -q &>/dev/null
-    _brew_preload
+    _brew_preload "${BREW_PKGS[@]}" docker docker-buildx vault node
     _clear_spin
 
     for pkg in "${BREW_PKGS[@]}"; do

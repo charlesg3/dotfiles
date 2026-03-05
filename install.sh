@@ -106,6 +106,7 @@ ok "~/.gitconfig (email: $GIT_EMAIL)"
 # ── CLI tools ─────────────────────────────────────────────────────────────────
 
 header "CLI tools"
+install_pkg bash
 install_pkg jq
 install_pkg tree
 install_pkg htop
