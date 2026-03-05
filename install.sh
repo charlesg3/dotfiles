@@ -2,12 +2,13 @@
 # Sets up and updates dotfiles on a machine. Safe to run repeatedly.
 #
 # Usage:
-#   ./install.sh [--nvim] [--node] [--email EMAIL]
+#   ./install.sh [--nvim] [--node] [--docker] [--email EMAIL]
 #
 # Flags:
 #   --nvim         Also install nvim system dependencies (ctags, tree-sitter, fonts, etc.)
 #                  The nvim config symlink and plugin sync always run regardless.
 #   --node         Also install Node.js (LTS) and npm
+#   --docker       Also install Docker (colima + docker CLI on macOS; Docker CE on Linux)
 #   --email EMAIL  Git email address (skips interactive prompt)
 
 set -e
@@ -17,6 +18,7 @@ DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 
 INSTALL_NVIM=false
 INSTALL_NODE=false
+INSTALL_DOCKER=false
 INSTALL_CLAUDE=false
 GIT_EMAIL=""
 UPGRADE=false
@@ -30,7 +32,7 @@ while [[ $# -gt 0 ]]; do
         --email)       GIT_EMAIL="$2"; shift ;;
         --email=*)     GIT_EMAIL="${1#--email=}" ;;
         --upgrade)     UPGRADE=true ;;
-        --docker)      UPGRADE_ARGS+=(--docker) ;;
+        --docker)      INSTALL_DOCKER=true; UPGRADE_ARGS+=(--docker) ;;
         --vault)       UPGRADE_ARGS+=(--vault) ;;
         *)
             err "Unknown option: $1"
@@ -140,6 +142,7 @@ mkdir -p "$BAT_THEMES_DIR"
 _gen "$DOTFILES/shell/panda.tmTheme.tmpl" "$BAT_THEMES_DIR/Panda.tmTheme"
 command -v bat     &>/dev/null && bat     cache --build &>/dev/null && ok "bat theme"
 command -v batcat  &>/dev/null && batcat  cache --build &>/dev/null && ok "batcat theme"
+link "$DOTFILES/bat/config" "$HOME/.config/bat/config"
 install_pkg tmux
 install_pkg expect
 [[ "$(uname)" == "Linux" ]] && install_pkg xclip
@@ -283,11 +286,14 @@ fi
 
 # ── OS-specific ───────────────────────────────────────────────────────────────
 
+PLATFORM_ARGS=()
+[[ "$INSTALL_DOCKER" == true ]] && PLATFORM_ARGS+=(--docker)
+
 OS="$(uname -s)"
 if [[ "$OS" == "Darwin" ]]; then
-    bash "$DOTFILES/install-macos.sh"
+    bash "$DOTFILES/install-macos.sh" "${PLATFORM_ARGS[@]}"
 elif [[ "$OS" == "Linux" ]]; then
-    bash "$DOTFILES/install-linux.sh"
+    bash "$DOTFILES/install-linux.sh" "${PLATFORM_ARGS[@]}"
 fi
 
 # ── Browsers ──────────────────────────────────────────────────────────────────

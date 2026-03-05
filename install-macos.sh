@@ -2,12 +2,21 @@
 # Installs macOS-specific tools and apps via Homebrew.
 #
 # Usage:
-#   ./install-macos.sh
+#   ./install-macos.sh [--docker]
 
 set -e
 
 DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 . "$DOTFILES/common.sh"
+
+INSTALL_DOCKER=false
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --docker) INSTALL_DOCKER=true ;;
+        *) err "Unknown option: $1"; exit 1 ;;
+    esac
+    shift
+done
 
 brew_install() {
     local pkg="$1"
@@ -46,11 +55,6 @@ brew_install tree
 brew_install watch
 brew_install coreutils
 brew_install git-lfs
-brew_install docker-buildx
-mkdir -p "$HOME/.docker/cli-plugins"
-ln -sfn "$(brew --prefix)/opt/docker-buildx/bin/docker-buildx" \
-    "$HOME/.docker/cli-plugins/docker-buildx"
-ok "docker-buildx cli plugin linked"
 
 # ── GitHub / GitLab ───────────────────────────────────────────────────────────
 
@@ -89,6 +93,19 @@ if [[ -d "/Applications/kitty.app" ]]; then
     fi
 else
     warn "kitty.app not found, skipping icon swap"
+fi
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+
+if [[ "$INSTALL_DOCKER" == true ]]; then
+    header "Docker"
+    brew_install colima
+    brew_install docker
+    brew_install docker-buildx
+    mkdir -p "$HOME/.docker/cli-plugins"
+    ln -sfn "$(brew --prefix)/opt/docker-buildx/bin/docker-buildx" \
+        "$HOME/.docker/cli-plugins/docker-buildx"
+    ok "docker-buildx cli plugin linked"
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
