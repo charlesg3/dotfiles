@@ -173,9 +173,9 @@ fi
 # Pass --deps only when --nvim was given to also install system dependencies.
 
 if [[ "$INSTALL_NVIM" == true ]]; then
-    bash "$DOTFILES/install_nvim.sh" --deps
+    bash "$DOTFILES/install-nvim.sh" --deps
 else
-    bash "$DOTFILES/install_nvim.sh"
+    bash "$DOTFILES/install-nvim.sh"
 fi
 
 # ── Node ──────────────────────────────────────────────────────────────────────
@@ -254,6 +254,10 @@ if [[ "$OS" == "Darwin" ]]; then
 elif [[ "$OS" == "Linux" ]]; then
     bash "$DOTFILES/install-linux.sh"
 fi
+
+# ── Browsers ──────────────────────────────────────────────────────────────────
+
+bash "$DOTFILES/install-browsers.sh"
 
 # ── Remote URL ────────────────────────────────────────────────────────────────
 # Convert HTTPS origin to SSH once git is fully configured and SSH auth works.

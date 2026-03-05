@@ -22,11 +22,12 @@ This repo manages dotfiles and installs CLI tools via `install.sh`. It symlinks 
 | File | Purpose |
 |------|---------|
 | `install.sh` | Main setup — symlinks, packages, nvim, Claude hooks, OS-specific. Safe to re-run. |
-| `install_nvim.sh` | Pull latest nvim submodule, symlink `~/.config/nvim`, update plugins, optionally install deps. |
+| `install-nvim.sh` | Pull latest nvim submodule, symlink `~/.config/nvim`, update plugins, optionally install deps. |
 | `update.sh` | Update all tools to latest (brew/apt packages, nvim, plugins, ble.sh, kitty). |
 | `common.sh` | Shared output helpers sourced by every install/update script. |
 | `install-macos.sh` | macOS-specific installs (Homebrew, apps, icon swap). |
 | `install-linux.sh` | Linux-specific installs (ble.sh, Kitty, Docker). |
+| `install-browsers.sh` | Register Vimium and LastPass extensions for Chrome/Brave/Firefox. Safe to re-run. |
 | `scripts/copy-to` | Rsync full dotfiles tree (incl. `.git`) to a remote machine. |
 
 ## Adding things
@@ -36,7 +37,7 @@ This repo manages dotfiles and installs CLI tools via `install.sh`. It symlinks 
 
 ## Neovim
 
-`nvim/` is a git submodule pointing to `charlesg3/nvim.git`. It is symlinked to `~/.config/nvim` by `install_nvim.sh`. Plugins are nested git submodules under `nvim/bundle/` (pathogen-style).
+`nvim/` is a git submodule pointing to `charlesg3/nvim.git`. It is symlinked to `~/.config/nvim` by `install-nvim.sh`. Plugins are nested git submodules under `nvim/bundle/` (pathogen-style).
 
 Both repos can be used independently: the nvim repo works standalone; dotfiles just orchestrates it.
 
@@ -44,7 +45,7 @@ Both repos can be used independently: the nvim repo works standalone; dotfiles j
 
 | Script | Purpose |
 |--------|---------|
-| `install_nvim.sh` | Pull latest nvim submodule → symlink → update all plugins → commit SHAs. Called by `install.sh`. Pass `--nvim` to `install.sh` to also run system deps. |
+| `install-nvim.sh` | Pull latest nvim submodule → symlink → update all plugins → commit SHAs. Called by `install.sh`. Pass `--nvim` to `install.sh` to also run system deps. |
 | `nvim/scripts/install.sh` | Install system deps (ctags, node, tree-sitter, parsers, Nerd Font). Flags: `--python`, `--clojure`, `--go`. |
 | `nvim/scripts/update.sh` | Update nvim binary + plugins, commit to nvim repo, bump dotfiles pointer. Called by `update.sh`. |
 | `nvim/scripts/package.sh` | Create a self-contained `.tar.gz` for distribution without git access. |

@@ -5,7 +5,7 @@
 # and optionally installs system dependencies.
 #
 # Usage:
-#   ./install_nvim.sh [--deps] [--python] [--clojure] [--go]
+#   ./install-nvim.sh [--deps] [--python] [--clojure] [--go]
 #
 # Flags:
 #   --deps      Also install system dependencies (ctags, tree-sitter, fonts, etc.)
