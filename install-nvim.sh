@@ -122,11 +122,14 @@ Updated: $plugin_list" &>/dev/null || true
     git -C "$DOTFILES" add nvim
     git -C "$DOTFILES" commit -m "chore: bump nvim ($(date +%Y-%m-%d))" &>/dev/null || true
     _clear_spin; ok "committed ${#updated_plugins[@]} plugin update(s)"
+    git -C "$NVIM_DIR" push &>/dev/null && ok "pushed nvim" || warn "could not push nvim repo (no SSH access yet?)"
+    git -C "$DOTFILES" push &>/dev/null || true
 elif [[ "$nvim_before" != "$nvim_after" ]]; then
     _spin "committing nvim update"
     git -C "$DOTFILES" add nvim
     git -C "$DOTFILES" commit -m "chore: bump nvim ($(date +%Y-%m-%d))" &>/dev/null || true
     _clear_spin; ok "committed nvim update"
+    git -C "$DOTFILES" push &>/dev/null || true
 fi
 
 # ── Nvim dependencies ─────────────────────────────────────────────────────────
