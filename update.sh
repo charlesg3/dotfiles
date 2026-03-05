@@ -302,7 +302,7 @@ fi
 if [ -d "$DOTFILES/nvim" ]; then
     nvim_before="$(git -C "$DOTFILES/nvim" rev-parse --short HEAD 2>/dev/null || echo "")"
     _spin "nvim config"
-    git -C "$DOTFILES" submodule update --remote -- nvim 2>/dev/null || true
+    git -C "$DOTFILES" submodule update --remote -- nvim &>/dev/null || true
     nvim_after="$(git -C "$DOTFILES/nvim" rev-parse --short HEAD 2>/dev/null || echo "?")"
     _clear_spin
     # Warn about known-dirty bundle states so they don't look like surprises
