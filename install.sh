@@ -18,16 +18,21 @@ DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 INSTALL_NVIM=false
 INSTALL_NODE=false
 GIT_EMAIL=""
+UPGRADE=false
+UPGRADE_ARGS=()
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         --nvim)        INSTALL_NVIM=true ;;
-        --node)        INSTALL_NODE=true ;;
+        --node)        INSTALL_NODE=true; UPGRADE_ARGS+=(--node) ;;
         --email)       GIT_EMAIL="$2"; shift ;;
         --email=*)     GIT_EMAIL="${1#--email=}" ;;
+        --upgrade)     UPGRADE=true ;;
+        --docker)      UPGRADE_ARGS+=(--docker) ;;
+        --vault)       UPGRADE_ARGS+=(--vault) ;;
         *)
             err "Unknown option: $1"
-            echo "Usage: $0 [--nvim] [--node] [--email EMAIL]"
+            echo "Usage: $0 [--nvim] [--node] [--upgrade] [--docker] [--vault] [--email EMAIL]"
             exit 1
             ;;
     esac
@@ -276,6 +281,12 @@ if [[ "$ORIGIN" == https://github.com/* ]]; then
     fi
 else
     ok "remote origin: $ORIGIN"
+fi
+
+# ── Upgrade ───────────────────────────────────────────────────────────────────
+
+if [[ "$UPGRADE" == true ]]; then
+    bash "$DOTFILES/update.sh" "${UPGRADE_ARGS[@]}"
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
