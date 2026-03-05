@@ -112,6 +112,14 @@ if [[ -d "$PATCHES_DIR" ]]; then
     done
 fi
 
+# Commit any bundles whose recorded SHA differs from what's checked out
+# (e.g. submodule already at latest remote but nvim index has old SHA).
+if ! git -C "$NVIM_DIR" diff --quiet -- bundle/ 2>/dev/null; then
+    git -C "$NVIM_DIR" add bundle/
+    git -C "$NVIM_DIR" commit -m "chore: update plugins ($(date +%Y-%m-%d))" &>/dev/null || true
+    updated_plugins+=("(pre-existing changes)")
+fi
+
 if [[ ${#updated_plugins[@]} -gt 0 ]]; then
     plugin_list="$(IFS=", "; echo "${updated_plugins[*]}")"
     _spin "committing plugin updates"
