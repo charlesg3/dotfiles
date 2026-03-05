@@ -33,6 +33,23 @@ FF_EXT_NAMES=(
 
 # ── Chrome helpers ─────────────────────────────────────────────────────────────
 
+_install_chrome_exts_sudo() {
+    local ext_dir="$1"
+    local i
+    for i in "${!CHROME_EXT_IDS[@]}"; do
+        local id="${CHROME_EXT_IDS[$i]}"
+        local name="${CHROME_EXT_NAMES[$i]}"
+        local json="$ext_dir/$id.json"
+        if [[ -f "$json" ]]; then
+            ok "$name (already registered)"
+        else
+            printf '{"external_update_url":"https://clients2.google.com/service/update2/crx"}\n' \
+                | sudo tee "$json" > /dev/null
+            ok "$name (will prompt on next launch)"
+        fi
+    done
+}
+
 _install_chrome_exts() {
     local ext_dir="$1"
     mkdir -p "$ext_dir"
@@ -135,19 +152,7 @@ elif [[ "$OS" == "Linux" ]]; then
         EXT_DIR="/opt/google/chrome/extensions"
         if sudo -n true 2>/dev/null || sudo true 2>/dev/null; then
             sudo mkdir -p "$EXT_DIR"
-            local i
-            for i in "${!CHROME_EXT_IDS[@]}"; do
-                local id="${CHROME_EXT_IDS[$i]}"
-                local name="${CHROME_EXT_NAMES[$i]}"
-                local json="$EXT_DIR/$id.json"
-                if [[ -f "$json" ]]; then
-                    ok "$name (already registered)"
-                else
-                    printf '{"external_update_url":"https://clients2.google.com/service/update2/crx"}\n' \
-                        | sudo tee "$json" > /dev/null
-                    ok "$name (will prompt on next launch)"
-                fi
-            done
+            _install_chrome_exts_sudo "$EXT_DIR"
         else
             warn "Chrome: sudo required to write to $EXT_DIR — skipping"
         fi
