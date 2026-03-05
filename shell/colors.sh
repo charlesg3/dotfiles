@@ -24,11 +24,18 @@ PANDA_BLUE="#6FC1FF"            # functions / bright blue
 PANDA_LIGHT_BLUE="#45A9F9"     # escape chars / tags
 PANDA_ORANGE="#FFB86C"          # constants
 PANDA_LIGHT_ORANGE="#FFCC95"   # operators / variables / bright yellow
-PANDA_WHEAT="#F5DEB3"           # pale wheat / warm cream (doc text)
+PANDA_WHEAT="#E6D87A"           # pale yellow (doc text / warm labels)
 PANDA_PURPLE="#B084EB"          # tags / class names (medium purple)
 PANDA_LAVENDER="#B1B9F5"        # UI accents / branch (light periwinkle lavender)
 PANDA_COMMENT="#676B79"         # comments / dim text
 PANDA_SELECTION="#31353A"       # selection background / line highlight
+# Per-mode 30%-blend tints (accent × bg) — used in airline section_b
+PANDA_MUTED_GREEN="#445A45"     # normal mode
+PANDA_MUTED_BLUE="#334C60"      # insert mode
+PANDA_MUTED_LAVENDER="#474A5D"  # visual mode
+PANDA_MUTED_RED="#5E2034"       # replace mode
+PANDA_MUTED_ORANGE="#5E4A34"    # command mode
+PANDA_MUTED_CYAN="#3C5A58"      # terminal mode
 
 # ── 2. Semantic map ───────────────────────────────────────────────────────────
 # Syntax
