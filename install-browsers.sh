@@ -69,7 +69,7 @@ _install_ff_exts() {
         local all_present=true
         local url
         for url in "${FF_EXT_URLS[@]}"; do
-            if ! jq -e --arg u "$url" '.policies.Extensions.Install[]? == $u' "$policies_file" &>/dev/null; then
+            if ! jq -e --arg u "$url" 'any(.policies.Extensions.Install[]?; . == $u)' "$policies_file" &>/dev/null; then
                 all_present=false
                 break
             fi
