@@ -33,6 +33,15 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
+# ── Self-update ───────────────────────────────────────────────────────────────
+
+header "Dotfiles"
+if git -C "$DOTFILES" pull --ff-only 2>/dev/null; then
+    ok "dotfiles up to date"
+else
+    warn "could not pull dotfiles (offline or diverged?)"
+fi
+
 # Packages to always upgrade
 BREW_PKGS=(jq tree htop ncdu colordiff bat eza zsh-autosuggestions zsh-syntax-highlighting glow gh colima fileicon expect)
 APT_PKGS=(jq tree htop ncdu colordiff bat eza xclip zsh-autosuggestions zsh-syntax-highlighting glow gh fonts-jetbrains-mono expect)
@@ -123,7 +132,9 @@ if command -v npm &>/dev/null; then
     latest=$(npm view npm version 2>/dev/null || echo "")
     _clear_spin
     if [[ "$UPDATE_NODE" == true ]]; then
-        npm install -g npm --quiet && ok "npm ${DIM}updated${RESET}" || true
+        NPM_CMD="npm"
+        [[ "$(uname)" == "Linux" ]] && NPM_CMD="sudo npm"
+        $NPM_CMD install -g npm --quiet && ok "npm ${DIM}updated${RESET}" || true
     elif [[ -n "$latest" && "$current" != "$latest" ]]; then
         warn "npm: ${YELLOW}$current → $latest${RESET} available — re-run with --node to upgrade"
     else
