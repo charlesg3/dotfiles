@@ -78,4 +78,4 @@ preexec_functions+=(_long_cmd_preexec)
 precmd_functions+=(_long_cmd_precmd)
 
 # ── Local overrides (machine-specific, not tracked) ──────────────────────────
-[ -f "$HOME/.zshrc.local" ] && source "$HOME/.zshrc.local"
+[ -f "$HOME/.zshrc.local" ] && source "$HOME/.zshrc.local" || true
