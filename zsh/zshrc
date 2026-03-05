@@ -1,4 +1,10 @@
-[[ -n "$SSH_CLIENT" && -z "$COLORTERM" ]] && export COLORTERM=truecolor
+if [[ -n "$SSH_CLIENT" ]]; then
+  [[ -z "$COLORTERM" ]] && export COLORTERM=truecolor
+  # WORKAROUND: zsh-syntax-highlighting 0.8.0 has a rendering bug (double chars)
+  # with TERM=xterm-kitty over SSH. Remove once 0.8.x ships a fix.
+  # Tracked: https://github.com/zsh-users/zsh-syntax-highlighting/issues/
+  [[ "$TERM" == "xterm-kitty" ]] && export TERM=xterm-256color
+fi
 
 HISTFILE=~/.histfile
 HISTSIZE=1000
