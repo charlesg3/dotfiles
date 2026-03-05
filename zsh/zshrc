@@ -1,3 +1,5 @@
+[[ -n "$SSH_CLIENT" && -z "$COLORTERM" ]] && export COLORTERM=truecolor
+
 HISTFILE=~/.histfile
 HISTSIZE=1000
 SAVEHIST=1000
