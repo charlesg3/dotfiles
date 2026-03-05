@@ -72,13 +72,18 @@ declare -A _BREW_VER        # pkg → installed version
 declare -A _BREW_CANDIDATE  # pkg → available upgrade version (absent if up to date)
 
 _brew_preload() {
+    # Takes the list of packages we manage as arguments so brew only queries
+    # those — querying all installed packages is much slower.
     local pkgs=("$@")
-    # Installed versions for only the packages we manage (not all of Homebrew)
+
+    # `brew list --versions pkg ...` returns "pkg version" lines only for
+    # installed packages; missing packages are silently omitted.
     while read -r pkg ver; do
         _BREW_VER["$pkg"]="$ver"
     done < <(brew list --versions "${pkgs[@]}" 2>/dev/null | awk '{print $1, $NF}')
 
-    # Outdated status for only the packages we manage
+    # `brew outdated --verbose pkg ...` emits "pkg (installed) < candidate"
+    # lines only for packages that have an available upgrade.
     while IFS= read -r line; do
         local pkg candidate
         pkg=$(awk '{print $1}' <<< "$line")

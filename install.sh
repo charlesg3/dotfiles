@@ -41,12 +41,32 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
+# Snapshot all installed packages once at startup. Each brew/dpkg invocation has
+# significant startup overhead; calling them per-package would be very slow.
+# install_pkg updates these strings after a successful install so subsequent
+# calls for the same package don't re-install it.
+_BREW_LIST=""
+_APT_LIST=""
+command -v brew       &>/dev/null && _BREW_LIST=$(brew list --formula 2>/dev/null)
+command -v dpkg-query &>/dev/null && _APT_LIST=$(dpkg-query -W -f='${Package}\n' 2>/dev/null)
+
 install_pkg() {
     local pkg="$1"
     if command -v brew &>/dev/null; then
-        brew list --formula "$pkg" &>/dev/null && ok "$pkg" || { warn "Installing $pkg..."; brew install "$pkg" && ok "$pkg installed"; }
+        # grep -x = exact whole-line match, avoids false matches on substrings
+        if echo "$_BREW_LIST" | grep -qx "$pkg"; then
+            ok "$pkg"
+        else
+            warn "Installing $pkg..."
+            brew install "$pkg" &>/dev/null && ok "$pkg installed" && _BREW_LIST="$_BREW_LIST"$'\n'"$pkg"
+        fi
     elif command -v apt-get &>/dev/null; then
-        dpkg -s "$pkg" &>/dev/null && ok "$pkg" || { warn "Installing $pkg..."; sudo apt-get install -y "$pkg" && ok "$pkg installed"; }
+        if echo "$_APT_LIST" | grep -qx "$pkg"; then
+            ok "$pkg"
+        else
+            warn "Installing $pkg..."
+            sudo apt-get install -y -q "$pkg" &>/dev/null && ok "$pkg installed" && _APT_LIST="$_APT_LIST"$'\n'"$pkg"
+        fi
     else
         warn "$pkg: no supported package manager"
     fi
