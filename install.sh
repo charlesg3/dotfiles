@@ -17,6 +17,7 @@ DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 
 INSTALL_NVIM=false
 INSTALL_NODE=false
+INSTALL_CLAUDE=false
 GIT_EMAIL=""
 UPGRADE=false
 UPGRADE_ARGS=()
@@ -25,6 +26,7 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --nvim)        INSTALL_NVIM=true ;;
         --node)        INSTALL_NODE=true; UPGRADE_ARGS+=(--node) ;;
+        --claude)      INSTALL_CLAUDE=true; UPGRADE_ARGS+=(--claude) ;;
         --email)       GIT_EMAIL="$2"; shift ;;
         --email=*)     GIT_EMAIL="${1#--email=}" ;;
         --upgrade)     UPGRADE=true ;;
@@ -32,7 +34,7 @@ while [[ $# -gt 0 ]]; do
         --vault)       UPGRADE_ARGS+=(--vault) ;;
         *)
             err "Unknown option: $1"
-            echo "Usage: $0 [--nvim] [--node] [--upgrade] [--docker] [--vault] [--email EMAIL]"
+            echo "Usage: $0 [--nvim] [--node] [--claude] [--upgrade] [--docker] [--vault] [--email EMAIL]"
             exit 1
             ;;
     esac
@@ -200,6 +202,17 @@ if [[ "$INSTALL_NODE" == true ]]; then
         ok "node installed ($(node --version))"
     else
         warn "node: no supported package manager"
+    fi
+fi
+
+# ── Claude Code ───────────────────────────────────────────────────────────────
+
+if [[ "$INSTALL_CLAUDE" == true ]]; then
+    header "Claude Code"
+    if command -v npm &>/dev/null; then
+        npm install -g @anthropic-ai/claude-code --quiet && ok "claude $(claude --version 2>/dev/null || true)"
+    else
+        warn "claude: npm not found — run with --node first"
     fi
 fi
 

@@ -18,15 +18,17 @@ DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 UPDATE_NODE=false
 UPDATE_DOCKER=false
 UPDATE_VAULT=false
+UPDATE_CLAUDE=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         --node)   UPDATE_NODE=true ;;
         --docker) UPDATE_DOCKER=true ;;
         --vault)  UPDATE_VAULT=true ;;
+        --claude) UPDATE_CLAUDE=true ;;
         *)
             err "Unknown option: $1"
-            echo "Usage: $0 [--node] [--docker] [--vault]"
+            echo "Usage: $0 [--node] [--docker] [--vault] [--claude]"
             exit 1
             ;;
     esac
@@ -248,6 +250,27 @@ if command -v vault &>/dev/null && ! dpkg -s vault &>/dev/null; then
         _clear_spin; ok "vault ${GREEN}$latest${RESET} ${DIM}(updated from $installed)${RESET}"
     else
         warn "vault: ${YELLOW}$installed → $latest${RESET} available — re-run with --vault to upgrade"
+    fi
+fi
+
+# ── Claude Code ───────────────────────────────────────────────────────────────
+
+if command -v claude &>/dev/null && command -v npm &>/dev/null; then
+    header "Claude Code"
+    installed=$(claude --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "")
+    _spin "claude"
+    latest=$(npm view @anthropic-ai/claude-code version 2>/dev/null || echo "")
+    _clear_spin
+    if [[ -z "$latest" ]]; then
+        warn "claude ${DIM}$installed${RESET} (could not check latest)"
+    elif [[ "$installed" == "$latest" ]]; then
+        ok "claude ${DIM}$installed${RESET}"
+    elif [[ "$UPDATE_CLAUDE" == true ]]; then
+        _spin "claude upgrading to $latest"
+        npm install -g @anthropic-ai/claude-code --quiet
+        _clear_spin; ok "claude ${DIM}$installed → $latest${RESET}"
+    else
+        warn "claude: ${YELLOW}$installed → $latest${RESET} available — re-run with --claude to upgrade"
     fi
 fi
 
