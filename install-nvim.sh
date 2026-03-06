@@ -72,39 +72,22 @@ for bundle_path in "$NVIM_DIR/bundle"/*/; do
     before_sha="$(git -C "$bundle_path" rev-parse --short HEAD 2>/dev/null || echo "")"
 
     _spin "$name"
-    if git -C "$NVIM_DIR" submodule status "bundle/$name" &>/dev/null; then
-        # Registered submodule — update via git submodule
-        if git -C "$NVIM_DIR" submodule update --init --remote --depth=1 --force -- "bundle/$name" &>/dev/null; then
-            after_sha="$(git -C "$bundle_path" rev-parse --short HEAD 2>/dev/null || echo "?")"
-            _clear_spin
-            if [[ -z "$before_sha" ]]; then
-                updated "$name ${DIM}$after_sha${RESET}"
-                updated_plugins+=("$name")
-            elif [[ "$before_sha" != "$after_sha" ]]; then
-                updated "$name ${YELLOW}$before_sha → $after_sha${RESET}"
-                updated_plugins+=("$name")
-            else
-                ok "$name ${DIM}$after_sha${RESET}"
-            fi
+    if git -C "$NVIM_DIR" submodule update --init --remote --depth=1 --force -- "bundle/$name" &>/dev/null \
+        || git -C "$bundle_path" pull --rebase &>/dev/null; then
+        after_sha="$(git -C "$bundle_path" rev-parse --short HEAD 2>/dev/null || echo "?")"
+        _clear_spin
+        if [[ -z "$before_sha" ]]; then
+            updated "$name ${DIM}$after_sha${RESET}"
+            updated_plugins+=("$name")
+        elif [[ "$before_sha" != "$after_sha" ]]; then
+            updated "$name ${YELLOW}$before_sha → $after_sha${RESET}"
+            updated_plugins+=("$name")
         else
-            _clear_spin
-            warn "$name (could not update)"
+            ok "$name ${DIM}$after_sha${RESET}"
         fi
     else
-        # Plain git repo (e.g. active development checkout) — pull directly
-        if git -C "$bundle_path" pull --rebase &>/dev/null; then
-            after_sha="$(git -C "$bundle_path" rev-parse --short HEAD 2>/dev/null || echo "?")"
-            _clear_spin
-            if [[ "$before_sha" != "$after_sha" ]]; then
-                updated "$name ${YELLOW}$before_sha → $after_sha${RESET}"
-                updated_plugins+=("$name")
-            else
-                ok "$name ${DIM}$after_sha${RESET}"
-            fi
-        else
-            _clear_spin
-            warn "$name (could not update)"
-        fi
+        _clear_spin
+        warn "$name (could not update)"
     fi
 done
 
