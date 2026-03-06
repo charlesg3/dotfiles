@@ -150,7 +150,19 @@ elif [[ "$OS" == "Linux" ]]; then
     if command -v google-chrome &>/dev/null || command -v google-chrome-stable &>/dev/null; then
         header "Chrome"
         EXT_DIR="/opt/google/chrome/extensions"
-        if sudo -n true 2>/dev/null || sudo true 2>/dev/null; then
+        # Check if all extensions are already registered
+        _all_chrome_exts_present() {
+            local id
+            for id in "${CHROME_EXT_IDS[@]}"; do
+                [[ -f "$EXT_DIR/$id.json" ]] || return 1
+            done
+            return 0
+        }
+        if _all_chrome_exts_present; then
+            for name in "${CHROME_EXT_NAMES[@]}"; do
+                ok "$name (already registered)"
+            done
+        elif sudo -n true 2>/dev/null || sudo true 2>/dev/null; then
             sudo mkdir -p "$EXT_DIR"
             _install_chrome_exts_sudo "$EXT_DIR"
         else
