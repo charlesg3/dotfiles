@@ -38,7 +38,7 @@ done
 # ── Self-update ───────────────────────────────────────────────────────────────
 
 header "Dotfiles"
-if git -C "$DOTFILES" pull --ff-only 2>/dev/null; then
+if git -C "$DOTFILES" pull --rebase 2>/dev/null; then
     ok "dotfiles up to date"
 else
     warn "could not pull dotfiles (offline or diverged?)"
