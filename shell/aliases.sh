@@ -58,6 +58,9 @@ alias irgrep='grep -ri --color=auto'
 t()   { tmux new-session -As "${1:-main}"; }
 tms() { local name; name="$(basename "$PWD" | tr ' ' '-')"; tmux new-session -As "$name"; }
 
+# Set terminal window title
+title() { printf '\033]0;%s\007' "$*"; }
+
 weather() { curl "wttr.in/${1:-80302}"; }
 alias whatsmyip='curl -s ifconfig.me && echo'
 
