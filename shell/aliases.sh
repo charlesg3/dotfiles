@@ -58,8 +58,17 @@ alias irgrep='grep -ri --color=auto'
 t()   { tmux new-session -As "${1:-main}"; }
 tms() { local name; name="$(basename "$PWD" | tr ' ' '-')"; tmux new-session -As "$name"; }
 
-# Set terminal window title
-title() { printf '\033]0;%s\007' "$*"; }
+# Set terminal window title (handles nvim, tmux, and plain terminal)
+title() {
+  if [[ -n "$NVIM" ]]; then
+    nvim --server "$NVIM" --remote-send ":Title $*<CR>"
+  fi
+  if [[ -n "$TMUX" ]]; then
+    printf '\ePtmux;\e\033]0;%s\007\e\\' "$*"
+  else
+    printf '\033]0;%s\007' "$*"
+  fi
+}
 
 weather() { curl "wttr.in/${1:-80302}"; }
 alias whatsmyip='curl -s ifconfig.me && echo'
