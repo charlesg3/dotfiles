@@ -59,6 +59,8 @@ unset -f _source_if
 # $KITTY_INSTALLATION_DIR is set by Kitty at launch; no-op outside Kitty
 [[ -n "$KITTY_INSTALLATION_DIR" ]] && \
     source "$KITTY_INSTALLATION_DIR/shell-integration/zsh/kitty.zsh"
+# Use kitten ssh to forward Kitty graphics protocol over SSH
+[[ -n "$KITTY_PID" ]] && alias ssh='kitten ssh'
 
 # ── Terminal title ────────────────────────────────────────────────────────────
 # Appended after Kitty's shell integration so our hook runs last and wins.

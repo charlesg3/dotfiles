@@ -81,6 +81,8 @@ fi
 # Must come after ble-attach since both use the DEBUG trap
 [ -n "$KITTY_INSTALLATION_DIR" ] && \
     source "$KITTY_INSTALLATION_DIR/shell-integration/bash/kitty.bash"
+# Use kitten ssh to forward Kitty graphics protocol over SSH
+[ -n "$KITTY_PID" ] && alias ssh='kitten ssh'
 
 # ── Long-command bell (shows green dot in kitty tab) ─────────────────────────
 _long_cmd_start=

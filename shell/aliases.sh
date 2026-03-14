@@ -9,10 +9,12 @@ alias update-tools='$HOME/src/dotfiles/update.sh'
 ssh-start-agent() { source "$HOME/src/dotfiles/scripts/ssh-start-agent"; }
 command -v colordiff &>/dev/null && alias diff='colordiff'
 
-# cat: syntax highlighting via bat, markdown via glow
+# cat: images via kitten icat, syntax highlighting via bat, markdown via glow
 unalias cat 2>/dev/null
 cat() {
-    if [[ "$1" == *.md ]] && command -v glow &>/dev/null; then
+    if [[ "$TERM" == xterm-kitty || -n "$KITTY_PID" ]] && [[ "$1" == *.png || "$1" == *.jpg || "$1" == *.jpeg || "$1" == *.gif || "$1" == *.bmp || "$1" == *.webp || "$1" == *.svg || "$1" == *.tiff ]]; then
+        kitten icat "$@"
+    elif [[ "$1" == *.md ]] && command -v glow &>/dev/null; then
         if [[ "$(uname)" == "Darwin" ]]; then
             _glamour="$HOME/Library/Preferences/glow/glamour.json"
         else
