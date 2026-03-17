@@ -41,6 +41,7 @@ nvim_before="$(git -C "$NVIM_DIR" rev-parse --short HEAD 2>/dev/null || echo "")
 _spin "nvim"
 git -C "$DOTFILES" submodule update --init --remote -- nvim &>/dev/null || true
 git -C "$NVIM_DIR" checkout main &>/dev/null || true
+git -C "$NVIM_DIR" pull --rebase &>/dev/null || true
 nvim_after="$(git -C "$NVIM_DIR" rev-parse --short HEAD 2>/dev/null || echo "?")"
 _clear_spin
 if [[ -z "$nvim_before" || "$nvim_before" == "$nvim_after" ]]; then
@@ -129,11 +130,15 @@ if [[ ${#updated_plugins[@]} -gt 0 ]]; then
     git -C "$NVIM_DIR" commit -m "chore: update plugins ($(date +%Y-%m-%d))
 
 Updated: $plugin_list" &>/dev/null || true
-    git -C "$DOTFILES" add nvim
-    git -C "$DOTFILES" commit -m "chore: bump nvim ($(date +%Y-%m-%d))" &>/dev/null || true
     _clear_spin; ok "committed ${#updated_plugins[@]} plugin update(s)"
-    git -C "$NVIM_DIR" push &>/dev/null && ok "pushed nvim" || warn "could not push nvim repo (no SSH access yet?)"
-    git -C "$DOTFILES" push &>/dev/null || true
+    if git -C "$NVIM_DIR" push &>/dev/null; then
+        ok "pushed nvim"
+        git -C "$DOTFILES" add nvim
+        git -C "$DOTFILES" commit -m "chore: bump nvim ($(date +%Y-%m-%d))" &>/dev/null || true
+        git -C "$DOTFILES" push &>/dev/null || true
+    else
+        warn "could not push nvim repo (no SSH access yet?) — dotfiles pointer not bumped"
+    fi
 elif [[ "$nvim_before" != "$nvim_after" ]]; then
     _spin "committing nvim update"
     git -C "$DOTFILES" add nvim
