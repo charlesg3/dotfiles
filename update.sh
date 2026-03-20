@@ -39,7 +39,9 @@ done
 
 header "Dotfiles"
 if git -C "$DOTFILES" pull --rebase 2>/dev/null; then
-    ok "dotfiles up to date"
+    # Push any local commits (e.g. nvim bumps from this machine) so other
+    # machines see them before they run their own bump and diverge.
+    git -C "$DOTFILES" push 2>/dev/null && ok "dotfiles up to date" || ok "dotfiles up to date (offline)"
 else
     warn "could not pull dotfiles (offline or diverged?)"
 fi
@@ -323,6 +325,7 @@ if [ -d "$DOTFILES/nvim" ]; then
         ok "nvim config ${DIM}$nvim_after${RESET} ${DIM}(was $nvim_before)${RESET}"
         git -C "$DOTFILES" add nvim
         git -C "$DOTFILES" commit -m "chore: bump nvim ($(date +%Y-%m-%d))" &>/dev/null || true
+        git -C "$DOTFILES" push 2>/dev/null || true
     else
         ok "nvim config ${DIM}$nvim_after${RESET}"
     fi
