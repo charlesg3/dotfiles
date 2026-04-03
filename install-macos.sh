@@ -55,6 +55,8 @@ brew_install tree
 brew_install watch
 brew_install coreutils
 brew_install git-lfs
+brew_install ffmpeg
+brew_install fswatch
 
 # ── GitHub / GitLab ───────────────────────────────────────────────────────────
 
