@@ -32,6 +32,30 @@ for arg in "$@"; do
     esac
 done
 
+# ── Nvim binary ──────────────────────────────────────────────────────────────
+
+header "Nvim"
+
+if command -v nvim &>/dev/null; then
+    ok "nvim $(nvim --version 2>/dev/null | head -1 | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+')"
+elif command -v brew &>/dev/null; then
+    warn "Installing neovim..."
+    brew install neovim &>/dev/null
+    ok "nvim installed ($(nvim --version | head -1 | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+'))"
+else
+    warn "Installing nvim from GitHub release..."
+    ARCH=$(uname -m)
+    TMP=$(mktemp -d)
+    if curl -fsSLo "$TMP/nvim.tar.gz" \
+        "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-${ARCH}.tar.gz"; then
+        sudo tar -xzf "$TMP/nvim.tar.gz" -C /usr/local --strip-components=1
+        ok "nvim installed ($(nvim --version | head -1 | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+'))"
+    else
+        err "nvim download failed"
+    fi
+    rm -rf "$TMP"
+fi
+
 # ── Nvim submodule ────────────────────────────────────────────────────────────
 
 header "Nvim config"

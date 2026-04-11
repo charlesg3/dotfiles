@@ -64,6 +64,17 @@ header "GitHub / GitLab"
 brew_install gh
 brew_install glab
 
+# ── Fonts ────────────────────────────────────────────────────────────────────
+
+header "Fonts"
+if ls "$HOME/Library/Fonts"/JetBrainsMonoNerdFont* &>/dev/null; then
+    ok "JetBrainsMono Nerd Font"
+else
+    warn "Installing JetBrainsMono Nerd Font..."
+    brew install --cask font-jetbrains-mono-nerd-font
+    ok "JetBrainsMono Nerd Font installed"
+fi
+
 # ── Apps ──────────────────────────────────────────────────────────────────────
 
 header "Apps"

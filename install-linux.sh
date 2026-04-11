@@ -70,13 +70,20 @@ fi
 # ── Fonts ─────────────────────────────────────────────────────────────────────
 
 header "Fonts"
-if dpkg -s fonts-jetbrains-mono &>/dev/null; then
-    ok "fonts-jetbrains-mono"
+
+NERD_FONT_DIR="/usr/local/share/fonts/NerdFonts"
+if ls "$NERD_FONT_DIR"/JetBrainsMonoNerdFont* &>/dev/null; then
+    ok "JetBrainsMono Nerd Font"
 else
-    warn "Installing fonts-jetbrains-mono..."
-    sudo apt-get install -y fonts-jetbrains-mono
-    fc-cache -f
-    ok "fonts-jetbrains-mono installed"
+    warn "Installing JetBrainsMono Nerd Font..."
+    sudo mkdir -p "$NERD_FONT_DIR"
+    TMP=$(mktemp -d)
+    curl -fLo "$TMP/JetBrainsMono.zip" \
+        "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip"
+    sudo unzip -q "$TMP/JetBrainsMono.zip" '*.ttf' -d "$NERD_FONT_DIR"
+    rm -rf "$TMP"
+    sudo fc-cache -f "$NERD_FONT_DIR"
+    ok "JetBrainsMono Nerd Font installed"
 fi
 
 # ── Docker ────────────────────────────────────────────────────────────────────
