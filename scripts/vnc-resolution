@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Switch display to MBP 14" VNC resolution (1600x900) or restore to default.
+# Usage: vnc_resolution.sh set | vnc_resolution.sh restore
+
+set -euo pipefail
+
+RESTORE_FILE="${HOME}/.vnc_display_restore.sh"
+
+if ! command -v displayplacer &>/dev/null; then
+    echo "[vnc_resolution] displayplacer not found. Install with:"
+    echo "  brew install jakehilborn/jakehilborn/displayplacer" >&2
+    exit 1
+fi
+
+case "${1:-}" in
+    set)
+        # Capture current config as a restore script.
+        displayplacer list | grep "^displayplacer " > "${RESTORE_FILE}"
+        chmod +x "${RESTORE_FILE}"
+
+        # Get the primary display ID and switch to 1600x900@60 (fits MBP 14" without scrolling).
+        display_id=$(displayplacer list | awk '/^Persistent screen id:/{print $NF; exit}')
+        displayplacer "id:${display_id} res:1600x900 hz:60 color_depth:4 enabled:true scaling:on origin:(0,0) degree:0"
+        echo "[vnc_resolution] Switched to 1600x900. Run '$(basename "$0") restore' when done."
+        ;;
+    restore)
+        if [[ ! -f "${RESTORE_FILE}" ]]; then
+            echo "[vnc_resolution] No saved config at ${RESTORE_FILE} — run 'set' first." >&2
+            exit 1
+        fi
+        bash "${RESTORE_FILE}"
+        rm "${RESTORE_FILE}"
+        echo "[vnc_resolution] Restored default resolution."
+        ;;
+    *)
+        echo "Usage: $(basename "$0") set|restore" >&2
+        exit 1
+        ;;
+esac

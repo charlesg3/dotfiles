@@ -76,3 +76,9 @@ weather() { curl "wttr.in/${1:-80302}"; }
 alias whatsmyip='curl -s ifconfig.me && echo'
 
 alias yt-dl-mp3='yt-dlp --output "%(title)s.%(ext)s" --yes-playlist --cookies ~/Downloads/youtube.com_cookies.txt -x --audio-format mp3'
+
+# VNC resolution switching (macOS only)
+if [ "$(uname)" = "Darwin" ]; then
+    alias vnc-res='vnc-resolution set'
+    alias vnc-res-restore='vnc-resolution restore'
+fi
