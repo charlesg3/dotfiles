@@ -75,7 +75,8 @@ title() {
 weather() { curl "wttr.in/${1:-80302}"; }
 alias whatsmyip='curl -s ifconfig.me && echo'
 
-alias yt-dl-mp3='yt-dlp --output "%(title)s.%(ext)s" --yes-playlist --cookies ~/Downloads/youtube.com_cookies.txt -x --audio-format mp3'
+# player_client=tv avoids the GVS PO-token requirement that 403s the default web client on age-restricted videos
+alias yt-dl-mp3='yt-dlp --output "%(title)s.%(ext)s" --yes-playlist --cookies ~/Downloads/youtube.com_cookies.txt --extractor-args "youtube:player_client=tv" -x --audio-format mp3'
 
 # VNC resolution switching (macOS only)
 if [ "$(uname)" = "Darwin" ]; then
