@@ -1,16 +1,85 @@
 #!/usr/bin/env bash
-# Switch display to MBP 14" VNC resolution (1600x900) or restore to default.
-# Usage: vnc_resolution.sh set | vnc_resolution.sh restore
+# Switch display to MBP 14" VNC resolution (1600x900) or restore to default,
+# and pull any off-screen windows back onto the visible (primary) display.
+# Usage: vnc-resolution set | restore | windows
 
 set -euo pipefail
 
 RESTORE_FILE="${HOME}/.vnc_display_restore.sh"
 
 if ! command -v displayplacer &>/dev/null; then
-    echo "[vnc_resolution] displayplacer not found. Install with:"
+    echo "[vnc_resolution] displayplacer not found. Install with:" >&2
     echo "  brew install jakehilborn/jakehilborn/displayplacer" >&2
     exit 1
 fi
+
+# Resolution (in points) of the display at origin (0,0) — the one a VNC viewer shows.
+primary_res() {
+    displayplacer list | awk '/^Resolution:/{res=$2} /Origin: \(0,0\)/{print res; exit}'
+}
+
+# Pull every visible window fully onto the primary display, shrinking any that
+# are larger than it. Windows already on-screen are left alone.
+# Needs Accessibility permission for the terminal running this (run it in your
+# VNC session, not over a plain ssh, or the move is blocked by assistive access).
+tuck_windows() {
+    local res w h out
+    res="$(primary_res)"
+    w="${res%x*}"
+    h="${res#*x}"
+    if [[ -z "$w" || -z "$h" ]]; then
+        echo "[vnc_resolution] could not read primary resolution; skipping window move." >&2
+        return 0
+    fi
+
+    if ! out="$(osascript - "$w" "$h" <<'OSA' 2>&1
+on run argv
+    set W to (item 1 of argv) as integer
+    set H to (item 2 of argv) as integer
+    set topMargin to 30
+    set edge to 10
+    set moved to 0
+    tell application "System Events"
+        repeat with p in (every process whose visible is true and background only is false)
+            repeat with win in (windows of p)
+                try
+                    set {x, y} to position of win
+                    set {ww, wh} to size of win
+                    set ow to ww
+                    set oh to wh
+                    if ww > (W - 2 * edge) then set ww to (W - 2 * edge)
+                    if wh > (H - topMargin - edge) then set wh to (H - topMargin - edge)
+                    set maxX to (W - ww - edge)
+                    set maxY to (H - wh - edge)
+                    set nx to x
+                    set ny to y
+                    if nx < edge then set nx to edge
+                    if nx > maxX then set nx to maxX
+                    if ny < topMargin then set ny to topMargin
+                    if ny > maxY then set ny to maxY
+                    if (nx is not x) or (ny is not y) or (ww is not ow) or (wh is not oh) then
+                        try
+                            set size of win to {ww, wh}
+                        end try
+                        set position of win to {nx, ny}
+                        set moved to moved + 1
+                    end if
+                end try
+            end repeat
+        end repeat
+    end tell
+    return "moved " & moved & " window(s) onto the primary display (" & W & "x" & H & ")"
+end run
+OSA
+)"; then
+        echo "[vnc_resolution] window move failed:" >&2
+        echo "  ${out}" >&2
+        echo "  If it mentions assistive access, grant your terminal app Accessibility in" >&2
+        echo "  System Settings > Privacy & Security > Accessibility, then re-run 'windows'." >&2
+        return 0
+    fi
+    echo "[vnc_resolution] ${out}"
+}
 
 case "${1:-}" in
     set)
@@ -21,6 +90,8 @@ case "${1:-}" in
         # Get the primary display ID and switch to 1600x900@60 (fits MBP 14" without scrolling).
         display_id=$(displayplacer list | awk '/^Persistent screen id:/{print $NF; exit}')
         displayplacer "id:${display_id} res:1600x900 hz:60 color_depth:4 enabled:true scaling:on origin:(0,0) degree:0"
+        sleep 1
+        tuck_windows
         echo "[vnc_resolution] Switched to 1600x900. Run '$(basename "$0") restore' when done."
         ;;
     restore)
@@ -32,8 +103,11 @@ case "${1:-}" in
         rm "${RESTORE_FILE}"
         echo "[vnc_resolution] Restored default resolution."
         ;;
+    windows)
+        tuck_windows
+        ;;
     *)
-        echo "Usage: $(basename "$0") set|restore" >&2
+        echo "Usage: $(basename "$0") set|restore|windows" >&2
         exit 1
         ;;
 esac
