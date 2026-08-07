@@ -21,7 +21,9 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SESSIONS_DIR="$SCRIPT_DIR/sessions"
-CLAUDE_HOOK_PATH="$SCRIPT_DIR/claude-tmux-hook"
+# Store both absolute and tilde-expanded paths for hook command
+CLAUDE_HOOK_ABS="$SCRIPT_DIR/claude-tmux-hook"
+CLAUDE_HOOK_PATH="~/src/dotfiles/tmux/claude-tmux-hook"
 
 # ============================================================================
 # Install function - adds hooks to Claude settings
@@ -35,26 +37,24 @@ install_hooks() {
         return 1
     fi
 
-    # Check if hook is already installed
-    if grep -q "claude-tmux-hook" "$CLAUDE_SETTINGS" 2>/dev/null; then
-        echo "Hook already installed in $CLAUDE_SETTINGS"
+    # Check if hook is already installed (check for either tilde or absolute path)
+    if jq -e '.hooks.SessionStart[0].hooks[] | select(.command | contains("claude-tmux-hook"))' "$CLAUDE_SETTINGS" >/dev/null 2>&1; then
+        echo "✓ Hook already installed in $CLAUDE_SETTINGS"
         return 0
     fi
 
-    echo "Installing tmux-resume hooks to $CLAUDE_SETTINGS..."
+    echo "Installing tmux-resume hook to $CLAUDE_SETTINGS..."
 
     # Create a backup
     cp "$CLAUDE_SETTINGS" "$CLAUDE_SETTINGS.backup"
-    echo "Backup created: $CLAUDE_SETTINGS.backup"
+    echo "  Backup created: $CLAUDE_SETTINGS.backup"
 
-    # Add the hook to SessionStart hooks array
-    # This uses jq to safely add the hook object if it doesn't exist
-    jq '.hooks.SessionStart[0].hooks += [
-        {
-            "type": "command",
-            "command": "'"$CLAUDE_HOOK_PATH"'"
-        }
-    ]' "$CLAUDE_SETTINGS" > "$CLAUDE_SETTINGS.tmp"
+    # Add the hook to SessionStart hooks array if it doesn't already exist
+    # This uses jq to safely add the hook object, preventing duplicates
+    jq '.hooks.SessionStart[0].hooks |= if any(.command | contains("claude-tmux-hook")) then . else . + [{
+        "type": "command",
+        "command": "'"$CLAUDE_HOOK_PATH"'"
+    }] end' "$CLAUDE_SETTINGS" > "$CLAUDE_SETTINGS.tmp"
 
     if [ $? -ne 0 ]; then
         echo "Error: Failed to add hook to settings"
