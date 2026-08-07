@@ -3,3 +3,6 @@
 shell/panda.tmTheme
 shell/glamour.json
 tmux/sessions/
+live-session/node_modules/
+live-session/.state/
+live-session/.cache/

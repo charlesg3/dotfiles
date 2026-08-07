@@ -1,0 +1,218 @@
+#!/usr/bin/env bash
+# Manage a long-lived non-headless real-Chrome session, driven over CDP by
+# Playwright. The profile is persistent, so logins survive across start/stop —
+# log into a site once and keep driving it from scripts for weeks.
+#
+#   start             launch the browser daemon (idempotent)
+#   stop              kill the browser daemon
+#   status            show daemon state
+#   exec [FILE|-]     run an .mjs script in the live browser
+#                     (- or no arg → read script from stdin)
+#
+# The executed script gets `browser`, `context`, `page` and `playwright` as
+# globals, may use top-level await, and disconnects (without closing the
+# browser) when it finishes.
+#
+# Requires node (./install.sh --node) and a real Google Chrome / Chromium.
+# playwright-core is installed into live-session/ on first start.
+
+set -euo pipefail
+
+DOTFILES="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/.." && pwd)"
+LIVE_DIR="$DOTFILES/live-session"
+STATE_DIR="$LIVE_DIR/.state"
+PID_FILE="$STATE_DIR/pid"
+WS_FILE="$STATE_DIR/wsEndpoint"
+LOG_FILE="$STATE_DIR/daemon.log"
+
+source "$DOTFILES/common.sh"
+
+mkdir -p "$STATE_DIR"
+
+is_running() {
+    [[ -f "$PID_FILE" ]] || return 1
+    local pid
+    pid="$(cat "$PID_FILE")"
+    [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null
+}
+
+ensure_deps() {
+    if ! command -v node &>/dev/null; then
+        err "node not found — run ./install.sh --node"
+        exit 1
+    fi
+    [[ -d "$LIVE_DIR/node_modules/playwright-core" ]] && return 0
+
+    # playwright-core 1.62 raised its floor to node 20. Installing latest on an
+    # older node yields a package that refuses to run, so hold those nodes on
+    # the last line that supports them rather than letting npm pick.
+    local major npm_args=(install --silent --no-audit --no-fund)
+    major="$(node -p 'process.versions.node.split(".")[0]')"
+    if (( major < 20 )); then
+        warn "node $major is older than playwright's floor of 20 — pinning playwright-core 1.61 (upgrade with ./install.sh --node)"
+        npm_args+=(--no-save "playwright-core@~1.61.0")
+    fi
+
+    _spin "Installing playwright-core"
+    if (cd "$LIVE_DIR" && npm "${npm_args[@]}") &>/dev/null; then
+        _clear_spin
+        ok "playwright-core installed"
+    else
+        _clear_spin
+        err "npm install failed in $LIVE_DIR"
+        exit 1
+    fi
+}
+
+cmd_start() {
+    ensure_deps
+    if is_running; then
+        ok "live session already running (pid $(cat "$PID_FILE"))"
+        return 0
+    fi
+
+    rm -f "$WS_FILE"
+
+    LIVE_SESSION_STATE_DIR="$STATE_DIR" \
+        nohup node "$LIVE_DIR/daemon.mjs" \
+        >> "$LOG_FILE" 2>&1 < /dev/null &
+    local pid=$!
+    echo "$pid" > "$PID_FILE"
+    disown "$pid" 2>/dev/null || true
+
+    # Chrome takes a moment to open its debug port; the daemon publishes the
+    # endpoint file only once it answers.
+    _spin "Waiting for browser"
+    local i
+    for (( i=0; i<150; i++ )); do
+        [[ -s "$WS_FILE" ]] && break
+        if ! kill -0 "$pid" 2>/dev/null; then
+            _clear_spin
+            err "daemon exited during startup — see $LOG_FILE"
+            rm -f "$PID_FILE"
+            exit 1
+        fi
+        sleep 0.2
+    done
+    _clear_spin
+
+    if [[ ! -s "$WS_FILE" ]]; then
+        err "browser never came up after 30s — see $LOG_FILE"
+        exit 1
+    fi
+
+    ok "live session running (pid $pid)"
+    ok "ws endpoint: $(cat "$WS_FILE")"
+    ok "logs: $LOG_FILE"
+}
+
+cmd_stop() {
+    if ! is_running; then
+        warn "live session not running"
+        rm -f "$PID_FILE" "$WS_FILE"
+        return 0
+    fi
+    local pid
+    pid="$(cat "$PID_FILE")"
+    kill -TERM "$pid" 2>/dev/null || true
+
+    local i
+    for (( i=0; i<50; i++ )); do
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 0.1
+    done
+
+    if kill -0 "$pid" 2>/dev/null; then
+        warn "process did not exit on SIGTERM; sending SIGKILL"
+        kill -KILL "$pid" 2>/dev/null || true
+    fi
+
+    rm -f "$PID_FILE" "$WS_FILE"
+    ok "stopped (pid $pid)"
+}
+
+cmd_status() {
+    if is_running; then
+        ok "running (pid $(cat "$PID_FILE"))"
+        [[ -s "$WS_FILE" ]] && ok "ws endpoint: $(cat "$WS_FILE")"
+        ok "logs: $LOG_FILE"
+    else
+        warn "not running"
+        return 1
+    fi
+}
+
+cmd_exec() {
+    ensure_deps
+    if ! is_running; then
+        err "live session not running — run \`$(basename "$0") start\` first"
+        return 1
+    fi
+    if [[ ! -s "$WS_FILE" ]]; then
+        err "ws endpoint missing or empty: $WS_FILE"
+        return 1
+    fi
+    local ws
+    ws="$(cat "$WS_FILE")"
+
+    local user_file cleanup_file=""
+    if [[ $# -ge 1 && "$1" != "-" ]]; then
+        if [[ ! -f "$1" ]]; then
+            err "script file not found: $1"
+            return 1
+        fi
+        user_file="$1"
+    else
+        # Read the script from stdin into a temp .mjs — Node needs the extension
+        # to treat it as a module.
+        user_file="$(mktemp -t live-session-XXXXXX).mjs"
+        cleanup_file="$user_file"
+        cat > "$user_file"
+    fi
+
+    local rc=0
+    LIVE_SESSION_WS="$ws" node "$LIVE_DIR/runner.mjs" "$user_file" || rc=$?
+    [[ -n "$cleanup_file" ]] && rm -f "$cleanup_file"
+    return "$rc"
+}
+
+usage() {
+    cat <<EOF
+usage: $(basename "$0") <command> [args]
+
+commands:
+  start             launch the browser daemon (idempotent)
+  stop              kill the browser daemon
+  status            show daemon state
+  exec [FILE|-]     run an .mjs script in the live browser
+                    (- or no arg → read script from stdin)
+
+In the executed script, these globals are available:
+  browser           Playwright Browser (CDP connection to the daemon's Chrome)
+  context           the browser's default BrowserContext
+  page              the most recently focused page (or a new one)
+  playwright        the playwright-core module (playwright.devices, etc.)
+
+environment:
+  LIVE_SESSION_CDP_PORT      debug port (default 9222)
+  LIVE_SESSION_PROFILE_DIR   Chrome profile (default live-session/.cache/chrome-profile)
+  LIVE_SESSION_CHROME        path to the Chrome/Chromium binary
+  LIVE_SESSION_URL           page to open on start
+  LIVE_SESSION_HEADLESS      1 to run headless
+EOF
+}
+
+main() {
+    local cmd="${1:-}"
+    [[ $# -gt 0 ]] && shift || true
+    case "$cmd" in
+        start)  cmd_start  "$@" ;;
+        stop)   cmd_stop   "$@" ;;
+        status) cmd_status "$@" ;;
+        exec)   cmd_exec   "$@" ;;
+        ""|-h|--help|help) usage ;;
+        *) err "unknown command: $cmd"; usage; exit 2 ;;
+    esac
+}
+
+main "$@"

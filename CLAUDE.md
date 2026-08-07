@@ -29,6 +29,7 @@ This repo manages dotfiles and installs CLI tools via `install.sh`. It symlinks 
 | `install-linux.sh` | Linux-specific installs (ble.sh, Kitty, Docker). |
 | `install-browsers.sh` | Register Vimium and LastPass extensions for Chrome/Brave/Firefox. Safe to re-run. |
 | `scripts/copy-to` | Rsync full dotfiles tree (incl. `.git`) to a remote machine. |
+| `scripts/live-session` | Long-lived real Chrome driven over CDP by Playwright; persistent profile keeps logins. See `live-session/README.md`. |
 
 ## Adding things
 
