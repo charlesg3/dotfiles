@@ -284,7 +284,16 @@ fi
 
 if command -v vault &>/dev/null && ! dpkg -s vault &>/dev/null; then
     header "Vault"
-    installed=$(vault version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    vault_id="$(vault version 2>/dev/null | head -1)"
+    # Other tools ship a `vault` too — NVIDIA's NVault reports
+    # "NVault Client v2.3.1" — and a bare semver grep cannot tell them apart, so
+    # this would happily replace one product with the other. HashiCorp's own
+    # output starts with "Vault v".
+    if [[ "$vault_id" != Vault\ v* ]]; then
+        ok "vault ${DIM}${vault_id:-unknown}${RESET} (not HashiCorp Vault, leaving alone)"
+        installed=""
+    else
+    installed=$(printf '%s' "$vault_id" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
     _spin "vault"
     latest=$(curl -fsSL https://checkpoint-api.hashicorp.com/v1/check/vault 2>/dev/null \
         | python3 -c "import sys,json; print(json.load(sys.stdin)['current_version'])" 2>/dev/null || echo "")
@@ -325,6 +334,7 @@ if command -v vault &>/dev/null && ! dpkg -s vault &>/dev/null; then
         fi
     else
         warn "vault: ${YELLOW}$installed → $latest${RESET} available — re-run with --vault to upgrade"
+    fi
     fi
 fi
 
