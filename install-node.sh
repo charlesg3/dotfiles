@@ -39,12 +39,21 @@ nodesource_reachable() {
     curl -fsS --max-time 10 -o /dev/null https://deb.nodesource.com/setup_lts.x 2>/dev/null
 }
 
+# $1 = LTS major, e.g. 24. Homebrew's plain `node` formula tracks Current, and
+# npm's engines range skips ageing Current lines: npm 12 accepts
+# ^22.22.2 || ^24.15.0 || >=26.0.0, so a machine on v25 cannot install current
+# npm at all. Pin the LTS formula so node and npm stay installable together.
 install_via_brew() {
-    if command -v node &>/dev/null && brew list node &>/dev/null; then
-        brew upgrade node &>/dev/null || true
+    local formula="node@$1"
+    if brew list --versions "$formula" &>/dev/null; then
+        brew upgrade "$formula" &>/dev/null || true
     else
-        brew install node &>/dev/null
+        brew install "$formula" &>/dev/null
     fi
+    # Versioned node formulae are keg-only, so nothing reaches PATH until they
+    # are linked, and an unlinked plain `node` would otherwise shadow this one.
+    brew unlink node &>/dev/null || true
+    brew link --overwrite --force "$formula" &>/dev/null
 }
 
 install_via_nodesource() {
@@ -109,10 +118,17 @@ main() {
         return 0
     fi
 
-    # A newer-than-LTS node (brew installs Current) is not something to downgrade.
+    # A newer major is not automatically better: odd majors are Current-only and
+    # go end-of-life fast (v25 shipped 2025-10 and was EOL by 2026-06), at which
+    # point npm's engines range drops them and the newest npm will not install.
+    # Even majors become LTS, so sitting on one briefly is fine and this script
+    # picks it up on its own once it is the latest LTS.
     if [[ -n "$current" ]] && (( $(_major "$current") > $(_major "$latest") )); then
-        ok "node ${DIM}$current${RESET} (newer than LTS $latest)"
-        return 0
+        if (( $(_major "$current") % 2 == 0 )); then
+            ok "node ${DIM}$current${RESET} (Current, becomes LTS; latest LTS is $latest)"
+            return 0
+        fi
+        warn "node ${YELLOW}$current is an odd/Current release with no LTS phase${RESET} — moving to LTS $latest"
     fi
 
     if [[ "$CHECK_ONLY" == true ]]; then
@@ -126,7 +142,7 @@ main() {
             return 1
         fi
         _spin "node (brew)"
-        install_via_brew
+        install_via_brew "$(_major "$latest")"
         _clear_spin
     elif command -v apt-get &>/dev/null && nodesource_reachable; then
         _spin "node (NodeSource)"
