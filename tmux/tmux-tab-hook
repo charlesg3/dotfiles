@@ -2,17 +2,31 @@
 # Hook to capture tmux tab state for resuming.
 # Call this from a Claude hook to save the current tab configuration.
 #
+# One file per window, named win-<epoch>-<rand>.json. The name is assigned once
+# and never changes; the window it describes is recorded in .window_id, so this
+# updates the existing file whenever one already names this window and only
+# creates a file when none does.
+#
+# .server_pid and .server_start record which tmux server handed that id out.
+# tmux starts again from @0 after a restart, so without them a file left over
+# from a dead server would be picked up here by an unrelated window that now
+# holds its old id. tmux-sync-tabs needs the same pair to tell a window the
+# user closed from a server that died.
+#
 # Usage:
 #   tmux-tab-hook
 #
 # Environment variables (set by Claude via hooks):
 #   CLAUDE_SESSION_ID: The current Claude session ID
 #   CLAUDE_PROJECT_DIR: The project directory (optional)
+#   TMUX_SESSIONS_DIR: override the sessions directory (tests)
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SESSIONS_DIR="$SCRIPT_DIR/sessions"
+SESSIONS_DIR="${TMUX_SESSIONS_DIR:-$SCRIPT_DIR/sessions}"
+LOCK_DIR="$SESSIONS_DIR/.sync.lock"
+LOCK_WAIT_TRIES=50      # 50 x 0.1s
 
 # Create sessions directory if it doesn't exist
 mkdir -p "$SESSIONS_DIR"
@@ -22,25 +36,87 @@ if [ -z "$TMUX" ]; then
     exit 0
 fi
 
-# Extract server info from TMUX env var
-# Format: /path/to/socket,server-pid,session-id
-TMUX_SOCKET=$(echo "$TMUX" | cut -d',' -f1)
-TMUX_PID=$(echo "$TMUX" | cut -d',' -f2)
+HELD_LOCK=0
+cleanup() {
+    rm -f "$SESSIONS_DIR"/.hook."$$".tmp 2>/dev/null || true
+    if [ "$HELD_LOCK" -eq 1 ]; then
+        rm -rf "$LOCK_DIR" 2>/dev/null || true
+    fi
+    return 0
+}
+trap cleanup EXIT
+
+# Share tmux-sync-tabs' lock so a reconcile cannot land between reading the
+# directory and writing into it. Waiting is best effort: this hook holds the
+# only copy of the session id, so on timeout it writes anyway. The write itself
+# is a rename over a temp file in the same directory, so a reader never sees a
+# half-written file either way.
+acquire_lock() {
+    local tries=0
+    while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+        tries=$((tries + 1))
+        if [ "$tries" -gt "$LOCK_WAIT_TRIES" ]; then
+            return 1
+        fi
+        if [ -n "$(find "$LOCK_DIR" -maxdepth 0 -mmin +1 2>/dev/null)" ]; then
+            rm -rf "$LOCK_DIR" 2>/dev/null || true
+            continue
+        fi
+        sleep 0.1
+    done
+    HELD_LOCK=1
+    return 0
+}
+
+# When a process started, as a string. Pids are recycled, so a pid on its own
+# can name two different servers; a pid that started at a given second names
+# one. The locale and zone are pinned because the same server has to render the
+# same way whatever environment the hook happens to run in. Keep in step with
+# tmux-sync-tabs, which compares the two strings.
+proc_start_time() {
+    local out
+    case "$1" in '' | *[!0-9]*) return 1 ;; esac
+    out=$(LC_ALL=C TZ=UTC ps -o lstart= -p "$1" 2>/dev/null) || return 1
+    out=$(printf '%s' "$out" | tr -s ' ' | sed 's/^ *//; s/ *$//')
+    [ -n "$out" ] || return 1
+    printf '%s' "$out"
+}
+
+# True if pid is a claude process, by executable name from comm or from the
+# first argv token.
+is_claude_pid() {
+    local pid=$1 comm argv0
+    comm=$(ps -o comm= -p "$pid" 2>/dev/null | tr -d ' ')
+    [ "$comm" = "claude" ] && return 0
+    argv0=$(ps -o args= -p "$pid" 2>/dev/null | awk '{ print $1 }')
+    case "$argv0" in
+        claude | */claude) return 0 ;;
+    esac
+    return 1
+}
 
 # Find the pane this hook runs in by walking up the process ancestry until a
 # pid matches a pane pid. The hook is usually several levels below the pane
 # process (nvim, claude, and their shells all sit in between), and it often
 # runs from a pane that is not the active one, so display-message without -t
 # would report a different window.
+# The claude process that started this hook is in the same chain, so record it
+# on the way up; its argv is what the resume command is built from.
 TMUX_SESSION_NAME=""
 TMUX_WINDOW_INDEX=""
-TMUX_PANES=$(tmux list-panes -a -F '#{pane_pid} #{window_index} #{session_name}' 2>/dev/null || true)
+TMUX_WINDOW_ID=""
+CLAUDE_PID=""
+# session_name is last: it is the only field that can contain a space.
+TMUX_PANES=$(tmux list-panes -a -F '#{pane_pid} #{window_index} #{window_id} #{session_name}' 2>/dev/null || true)
 if [ -n "$TMUX_PANES" ]; then
     walk_pid=$$
     while [ "$walk_pid" -gt 1 ] 2>/dev/null; do
+        if [ -z "$CLAUDE_PID" ] && is_claude_pid "$walk_pid"; then
+            CLAUDE_PID=$walk_pid
+        fi
         pane_row=$(printf '%s\n' "$TMUX_PANES" | awk -v p="$walk_pid" '$1 == p { print; exit }')
         if [ -n "$pane_row" ]; then
-            read -r _ TMUX_WINDOW_INDEX TMUX_SESSION_NAME <<< "$pane_row"
+            read -r _ TMUX_WINDOW_INDEX TMUX_WINDOW_ID TMUX_SESSION_NAME <<< "$pane_row"
             break
         fi
         parent_pid=$(ps -o ppid= -p "$walk_pid" 2>/dev/null | tr -d ' ')
@@ -53,9 +129,27 @@ fi
 
 # Fall back to the active window if no pane matched (detached session, or ps
 # or tmux unavailable)
-if [ -z "$TMUX_SESSION_NAME" ] || [ -z "$TMUX_WINDOW_INDEX" ]; then
+if [ -z "$TMUX_WINDOW_ID" ]; then
     TMUX_SESSION_NAME=$(tmux display-message -p '#{session_name}' 2>/dev/null || echo "main")
     TMUX_WINDOW_INDEX=$(tmux display-message -p '#{window_index}' 2>/dev/null || echo "0")
+    TMUX_WINDOW_ID=$(tmux display-message -p '#{window_id}' 2>/dev/null || true)
+fi
+
+# index is written as a JSON number, so anything that is not a plain decimal
+# would make the write fail outright.
+case "$TMUX_WINDOW_INDEX" in
+    '' | *[!0-9]*) TMUX_WINDOW_INDEX=0 ;;
+esac
+
+# The server this window id belongs to.
+TMUX_SERVER_PID=$(tmux display-message -p '#{pid}' 2>/dev/null || true)
+case "$TMUX_SERVER_PID" in '' | *[!0-9]*) TMUX_SERVER_PID="" ;; esac
+TMUX_SERVER_START=""
+if [ -n "$TMUX_SERVER_PID" ]; then
+    TMUX_SERVER_START=$(proc_start_time "$TMUX_SERVER_PID") || TMUX_SERVER_START=""
+fi
+if [ -z "$TMUX_SERVER_START" ]; then
+    TMUX_SERVER_PID=""
 fi
 
 # If CLAUDE_SESSION_ID is not provided, try to read it from a file
@@ -73,8 +167,13 @@ if [ ! -d "$CWD" ]; then
 fi
 CWD="$(cd "$CWD" && pwd)"
 
-# Get the tmux window name
-TMUX_WINDOW_NAME=$(tmux display-message -p -t "$TMUX_SESSION_NAME:$TMUX_WINDOW_INDEX" '#{window_name}')
+# Get the tmux window name. Target the window id when there is one: it is the
+# only target that stays correct while windows are being renumbered.
+if [ -n "$TMUX_WINDOW_ID" ]; then
+    TMUX_WINDOW_NAME=$(tmux display-message -p -t "$TMUX_WINDOW_ID" '#{window_name}' 2>/dev/null || true)
+else
+    TMUX_WINDOW_NAME=$(tmux display-message -p -t "$TMUX_SESSION_NAME:$TMUX_WINDOW_INDEX" '#{window_name}' 2>/dev/null || true)
+fi
 
 # Determine the command to run based on current context
 # Check if we're in nvim/vim (can check $NVIM, $VIM env vars)
@@ -85,41 +184,162 @@ fi
 
 # Build the resume command with session ID if available
 if [ -n "$CLAUDE_SESSION_ID" ]; then
-    RESUME_FLAG="--session $CLAUDE_SESSION_ID"
+    RESUME_FLAG="--resume $CLAUDE_SESSION_ID"
 else
     RESUME_FLAG=""
+fi
+
+# Read the argv of the claude process into CLAUDE_ARGV. /proc keeps the NUL
+# separators, so a value containing spaces stays one token; ps joins argv with
+# spaces and such a value cannot be split back apart.
+read_claude_argv() {
+    local pid=$1 line tok
+    CLAUDE_ARGV=()
+    if [ -r "/proc/$pid/cmdline" ]; then
+        while IFS= read -r -d '' tok; do
+            CLAUDE_ARGV+=("$tok")
+        done < "/proc/$pid/cmdline"
+    else
+        line=$(ps -o args= -p "$pid" 2>/dev/null || true)
+        [ -n "$line" ] && read -r -a CLAUDE_ARGV <<< "$line"
+    fi
+    [ ${#CLAUDE_ARGV[@]} -gt 0 ]
+}
+
+# Quote a token so the replayed command line parses back to the same string.
+shquote() {
+    case "$1" in
+        '') printf "''" ;;
+        *[!A-Za-z0-9_@%+=:,./-]*) printf "'%s'" "${1//\'/\'\\\'\'}" ;;
+        *) printf '%s' "$1" ;;
+    esac
+}
+
+# Escape a command so it survives sitting inside the double-quoted nvim -c
+# argument.
+dquote_escape() {
+    printf '%s' "$1" | sed 's/[\\"$`]/\\&/g'
+}
+
+# Rebuild the claude command line from CLAUDE_ARGV: program name without its
+# directory, then the flags it was launched with. Session flags are dropped so
+# the live process's session id does not get recorded; the hook appends its own.
+build_claude_command() {
+    local -a out=("$(basename "${CLAUDE_ARGV[0]}")")
+    local i=1 tok next
+    while [ "$i" -lt "${#CLAUDE_ARGV[@]}" ]; do
+        tok="${CLAUDE_ARGV[i]}"
+        i=$((i + 1))
+        case "$tok" in
+            --session | --session-id | --resume | -r)
+                # --resume and -r take an optional value, so only consume the
+                # next token when it is not itself a flag
+                next="${CLAUDE_ARGV[i]-}"
+                case "$next" in
+                    '' | -*) ;;
+                    *) i=$((i + 1)) ;;
+                esac
+                continue
+                ;;
+            --session=* | --session-id=* | --resume=*)
+                continue
+                ;;
+        esac
+        out+=("$(shquote "$tok")")
+    done
+    printf '%s' "${out[*]}"
+}
+
+# Build the claude invocation from the running process so the resumed window
+# gets the flags it was actually started with. If that process cannot be read,
+# fall back to the literal command this hook has always written, so existing
+# tabs keep restoring the same way.
+if [ -n "$CLAUDE_PID" ] && read_claude_argv "$CLAUDE_PID"; then
+    CLAUDE_COMMAND=$(build_claude_command)
+else
+    CLAUDE_COMMAND="claude --dangerously-skip-permissions"
+fi
+if [ -n "$RESUME_FLAG" ]; then
+    CLAUDE_COMMAND="$CLAUDE_COMMAND $RESUME_FLAG"
 fi
 
 # Determine command based on vim status
 if [ "$IN_VIM" -eq 1 ]; then
     # If in vim, create a command that opens vim-claude with the session
-    if [ -n "$RESUME_FLAG" ]; then
-        COMMAND="nvim -c \"rightbelow vsplit | terminal claude --dangerously-skip-permissions $RESUME_FLAG\" -c \"startinsert\""
-    else
-        COMMAND="nvim -c \"rightbelow vsplit | terminal claude --dangerously-skip-permissions\" -c \"startinsert\""
-    fi
+    COMMAND="nvim -c \"rightbelow vsplit | terminal $(dquote_escape "$CLAUDE_COMMAND")\" -c \"startinsert\""
 else
     # Otherwise, just run claude to resume the session
-    if [ -n "$RESUME_FLAG" ]; then
-        COMMAND="claude --dangerously-skip-permissions $RESUME_FLAG"
-    else
-        COMMAND="claude --dangerously-skip-permissions"
-    fi
+    COMMAND="$CLAUDE_COMMAND"
 fi
 
-# Create the tab configuration JSON
-TAB_CONFIG=$(jq -n \
+acquire_lock || true
+
+# The file for this window, if it already has one. Matching on window_id rather
+# than on the index means a window that has moved since its file was written is
+# still recognised as the same window.
+TAB_FILE=""
+if [ -n "$TMUX_WINDOW_ID" ]; then
+    for f in "$SESSIONS_DIR"/win-*.json; do
+        [ -f "$f" ] || continue
+        if [ "$(jq -r '.window_id // empty' "$f" 2>/dev/null)" != "$TMUX_WINDOW_ID" ]; then
+            continue
+        fi
+        # A file naming another server is a leftover from before a restart, and
+        # this server has handed its id out again to an unrelated window, so it
+        # is not this window's file. A file naming no server is from before the
+        # field existed and matches on the id alone, as it always did.
+        if [ -n "$TMUX_SERVER_PID" ]; then
+            f_pid=$(jq -r '.server_pid // empty' "$f" 2>/dev/null)
+            f_start=$(jq -r '.server_start // empty' "$f" 2>/dev/null)
+            if [ -n "$f_pid$f_start" ] &&
+                { [ "$f_pid" != "$TMUX_SERVER_PID" ] || [ "$f_start" != "$TMUX_SERVER_START" ]; }; then
+                continue
+            fi
+        fi
+        TAB_FILE="$f"
+        break
+    done
+fi
+
+# No file names this window yet, so this is a new one. The name is opaque and
+# permanent: nothing that happens to the window later can make it wrong.
+if [ -z "$TAB_FILE" ]; then
+    TAB_FILE="$SESSIONS_DIR/win-$(date -u +%s)-$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n').json"
+fi
+
+TMP_FILE="$SESSIONS_DIR/.hook.$$.tmp"
+
+# Merge onto whatever is already in the file so a field this hook does not know
+# about survives. index is a number so tmux-resume can sort on it.
+if [ -f "$TAB_FILE" ]; then
+    BASE_JSON=$(cat "$TAB_FILE")
+    if ! printf '%s' "$BASE_JSON" | jq -e 'type == "object"' >/dev/null 2>&1; then
+        BASE_JSON='{}'
+    fi
+else
+    BASE_JSON='{}'
+fi
+
+printf '%s' "$BASE_JSON" | jq \
     --arg name "$TMUX_WINDOW_NAME" \
     --arg cwd "$CWD" \
     --arg command "$COMMAND" \
-    '{
+    --arg claude_session_id "$CLAUDE_SESSION_ID" \
+    --arg window_id "$TMUX_WINDOW_ID" \
+    --arg server_pid "$TMUX_SERVER_PID" \
+    --arg server_start "$TMUX_SERVER_START" \
+    --argjson index "$TMUX_WINDOW_INDEX" \
+    '. + {
         name: $name,
         cwd: $cwd,
+        index: $index,
         command: $command,
-        claude_session_id: '"${CLAUDE_SESSION_ID:+\"$CLAUDE_SESSION_ID\"}"',
-        timestamp: now | todate
-    }')
+        timestamp: (now | todate)
+    }
+    + (if $claude_session_id == "" then {} else {claude_session_id: $claude_session_id} end)
+    + (if $window_id == "" then {} else {window_id: $window_id} end)
+    + (if $window_id == "" or $server_pid == "" then {}
+       else {server_pid: ($server_pid | tonumber), server_start: $server_start} end)' \
+    > "$TMP_FILE"
 
-# Write the configuration to the tab file
-TAB_FILE="$SESSIONS_DIR/tab_${TMUX_WINDOW_INDEX}.json"
-echo "$TAB_CONFIG" | jq . > "$TAB_FILE"
+mv -f "$TMP_FILE" "$TAB_FILE"

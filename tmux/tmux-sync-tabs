@@ -1,0 +1,431 @@
+#!/usr/bin/env bash
+# Reconcile the saved tab files against tmux's live window list.
+#
+# A tab file is named win-<epoch>-<rand>.json. That name is assigned once, when
+# the file is created, and never changes. It carries no meaning, so nothing that
+# happens to a window can make a file name wrong. The window a file describes is
+# recorded in its .window_id field, and .index records where the window sat so
+# tmux-resume can put it back in order.
+#
+# Keying on the index instead, as the file name used to, went wrong whenever a
+# window moved: the index in the name started describing a different window, and
+# the Claude session recorded in the file went with it. Keying on the window id
+# in the name would go wrong on a server restart, when tmux hands out ids from
+# @0 again and every name at once would be stale.
+#
+# Two different things stop a saved window_id from resolving, and they need
+# opposite treatment. The user closed that window, and the file should go with
+# it. Or the tmux server died and was replaced, and every file has to survive,
+# because restoring them is the whole point of the tool. So each file records
+# the server its window id came from, as .server_pid and .server_start, and the
+# two cases are told apart by which server is running now:
+#
+#   this server   an id that no longer resolves is a window the user closed,
+#                 so the file is deleted
+#   any other,    the ids were handed out by a server that is gone and mean
+#   or none       nothing here: rebind by .index and delete nothing
+#
+# Counting how many ids still resolve cannot tell the two apart. Closing the
+# only recorded window leaves zero resolving, exactly like a restart does.
+#
+# Only the fields tmux knows are touched: .name, .cwd, .index, .window_id and
+# the .server_pid/.server_start pair that says where that id came from.
+# .command and .claude_session_id come from the Claude SessionStart hook, which
+# is the only thing that can produce them, so they are merged around rather than
+# overwritten. A window with no saved file is left alone.
+#
+# Usage:
+#   tmux-sync-tabs
+#
+# Runs from the tmux hooks in tmux.conf via run-shell -b, so it stays quiet and
+# exits 0 whenever there is nothing it can safely do.
+#
+# Environment:
+#   TMUX_SESSIONS_DIR      override the sessions directory (tests)
+#   TMUX_SYNC_TABS_DEBUG   set to log what it does to stderr
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SESSIONS_DIR="${TMUX_SESSIONS_DIR:-$SCRIPT_DIR/sessions}"
+LOCK_DIR="$SESSIONS_DIR/.sync.lock"
+LOCK_WAIT_TRIES=100     # 100 x 0.1s
+# Fields are tab separated. tmux passes a tab in the format string through as
+# itself but renders a tab inside a window name or path as the two characters
+# \t, so a tab in the output is always a separator and never part of a value.
+TAB=$(printf '\t')
+
+debug() {
+    if [ -n "${TMUX_SYNC_TABS_DEBUG:-}" ]; then
+        printf 'tmux-sync-tabs: %s\n' "$*" >&2
+    fi
+}
+
+HELD_LOCK=0
+cleanup() {
+    rm -f "$SESSIONS_DIR"/.sync."$$".*.tmp 2>/dev/null || true
+    if [ "$HELD_LOCK" -eq 1 ]; then
+        rm -rf "$LOCK_DIR" 2>/dev/null || true
+    fi
+    return 0
+}
+trap cleanup EXIT
+trap 'exit 0' INT TERM HUP
+
+# Serialise the whole reconcile. tmux fires these hooks in bursts, and the
+# Claude hook writes into the same directory. mkdir is the atomic primitive
+# available everywhere; flock is not on macOS. A lock dir older than a minute
+# belongs to a process that died holding it.
+acquire_lock() {
+    local tries=0
+    while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+        tries=$((tries + 1))
+        if [ "$tries" -gt "$LOCK_WAIT_TRIES" ]; then
+            return 1
+        fi
+        if [ -n "$(find "$LOCK_DIR" -maxdepth 0 -mmin +1 2>/dev/null)" ]; then
+            debug "breaking stale lock"
+            rm -rf "$LOCK_DIR" 2>/dev/null || true
+            continue
+        fi
+        sleep 0.1
+    done
+    HELD_LOCK=1
+    return 0
+}
+
+# Live windows, one entry per array slot.
+LIVE_ID=()
+LIVE_SESSION=()
+LIVE_INDEX=()
+LIVE_NAME=()
+LIVE_PATH=()
+
+FOUND=-1
+
+find_live_by_id() {
+    local i=0
+    while [ "$i" -lt "${#LIVE_ID[@]}" ]; do
+        if [ "${LIVE_ID[$i]}" = "$1" ]; then
+            FOUND=$i
+            return 0
+        fi
+        i=$((i + 1))
+    done
+    return 1
+}
+
+# find_live_by_index <session> <index>
+find_live_by_index() {
+    local i=0
+    while [ "$i" -lt "${#LIVE_ID[@]}" ]; do
+        if [ "${LIVE_SESSION[$i]}" = "$1" ] && [ "${LIVE_INDEX[$i]}" = "$2" ]; then
+            FOUND=$i
+            return 0
+        fi
+        i=$((i + 1))
+    done
+    return 1
+}
+
+in_list() {
+    local needle=$1 item
+    shift
+    for item in "$@"; do
+        if [ "$item" = "$needle" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# When a process started, as a string. Pids are recycled, so a pid on its own
+# can name two different servers; a pid that started at a given second names
+# one. The locale and zone are pinned because the same server has to render the
+# same way whatever environment the hook happens to run in.
+proc_start_time() {
+    local out
+    case "$1" in '' | *[!0-9]*) return 1 ;; esac
+    out=$(LC_ALL=C TZ=UTC ps -o lstart= -p "$1" 2>/dev/null) || return 1
+    out=$(printf '%s' "$out" | tr -s ' ' | sed 's/^ *//; s/ *$//')
+    [ -n "$out" ] || return 1
+    printf '%s' "$out"
+}
+
+# True when a file's recorded server is the one running now. Both halves have
+# to be known: without them there is no way to tell a closed window from a
+# server that has been replaced, and the file has to be left alone.
+is_this_server() {
+    [ -n "$1" ] && [ "$1" = "$SERVER_PID" ] && [ "$2" = "$SERVER_START" ]
+}
+
+# ── Preconditions ─────────────────────────────────────────────────────────────
+
+if [ -z "${TMUX:-}" ]; then
+    exit 0
+fi
+if ! command -v jq >/dev/null 2>&1; then
+    exit 0
+fi
+if [ ! -d "$SESSIONS_DIR" ] || [ ! -w "$SESSIONS_DIR" ]; then
+    exit 0
+fi
+
+# Which server is running. Every decision below depends on knowing it, so
+# without it there is nothing that can safely be done.
+SERVER_PID=$(tmux display-message -p '#{pid}' 2>/dev/null || true)
+case "$SERVER_PID" in '' | *[!0-9]*) exit 0 ;; esac
+SERVER_START=$(proc_start_time "$SERVER_PID") || exit 0
+
+LIVE_OUT=$(tmux list-windows -a -F \
+    "#{window_id}${TAB}#{session_name}${TAB}#{window_index}${TAB}#{window_name}${TAB}#{pane_current_path}" \
+    2>/dev/null) || exit 0
+if [ -z "$LIVE_OUT" ]; then
+    exit 0
+fi
+
+# Split by hand rather than with IFS: a tab is whitespace to read, which would
+# swallow an empty window name or path and shift every field after it.
+while IFS= read -r line; do
+    l_id=${line%%"$TAB"*}; line=${line#*"$TAB"}
+    l_sess=${line%%"$TAB"*}; line=${line#*"$TAB"}
+    l_idx=${line%%"$TAB"*}; line=${line#*"$TAB"}
+    l_name=${line%%"$TAB"*}; l_path=${line#*"$TAB"}
+    case "$l_id" in @*) ;; *) continue ;; esac
+    case "$l_idx" in '' | *[!0-9]*) continue ;; esac
+    LIVE_ID+=("$l_id")
+    LIVE_SESSION+=("$l_sess")
+    LIVE_INDEX+=("$l_idx")
+    LIVE_NAME+=("$l_name")
+    LIVE_PATH+=("$l_path")
+done <<< "$LIVE_OUT"
+
+if [ "${#LIVE_ID[@]}" -eq 0 ]; then
+    exit 0
+fi
+
+if ! acquire_lock; then
+    debug "lock busy, skipping"
+    exit 0
+fi
+
+# ── Saved files ───────────────────────────────────────────────────────────────
+# Same glob tmux-resume reads. Anything that is not a JSON object is left alone:
+# it is not ours to rewrite or delete.
+
+SAVED_FILE=()
+SAVED_INDEX=()
+SAVED_WID=()
+SAVED_MINE=()
+
+for src in "$SESSIONS_DIR"/win-*.json; do
+    [ -f "$src" ] || continue
+    base=${src##*/}
+    if ! jq -e 'type == "object"' "$src" >/dev/null 2>&1; then
+        debug "leaving $base alone (not a JSON object)"
+        continue
+    fi
+    SAVED_FILE+=("$base")
+    SAVED_INDEX+=("$(jq -r '.index // empty' "$src")")
+    SAVED_WID+=("$(jq -r '.window_id // empty' "$src")")
+    if is_this_server "$(jq -r '.server_pid // empty' "$src")" "$(jq -r '.server_start // empty' "$src")"; then
+        SAVED_MINE+=(1)
+    else
+        SAVED_MINE+=(0)
+    fi
+done
+
+if [ "${#SAVED_FILE[@]}" -eq 0 ]; then
+    exit 0
+fi
+
+# Files whose ids came from some other server, or from no recorded server at
+# all: their ids say nothing about the windows here, so they rebind by index.
+# A file written before this pair existed lands here too, which is what makes
+# the first run after the change rebind instead of delete.
+OTHERS=0
+k=0
+while [ "$k" -lt "${#SAVED_FILE[@]}" ]; do
+    if [ "${SAVED_MINE[$k]}" -eq 0 ]; then
+        OTHERS=$((OTHERS + 1))
+    fi
+    k=$((k + 1))
+done
+debug "server $SERVER_PID ($SERVER_START): ${#SAVED_FILE[@]} files, $OTHERS from elsewhere"
+
+# ── Which session do these files describe ─────────────────────────────────────
+# Only needed for the files that rebind by index, where an index means nothing
+# without a session. Score every session by how many of those indices it has a
+# window for. Ties go to the session the hook fired in.
+
+CTX_SESSION=""
+if [ "$OTHERS" -gt 0 ]; then
+    if [ -n "${TMUX_PANE:-}" ]; then
+        CTX_SESSION=$(tmux display-message -p -t "$TMUX_PANE" '#{session_name}' 2>/dev/null || true)
+    fi
+    if [ -z "$CTX_SESSION" ]; then
+        CTX_SESSION=$(tmux display-message -p '#{session_name}' 2>/dev/null || true)
+    fi
+fi
+
+OWNER=""
+if [ "$OTHERS" -gt 0 ]; then
+    SESSIONS=()
+    i=0
+    while [ "$i" -lt "${#LIVE_ID[@]}" ]; do
+        if ! in_list "${LIVE_SESSION[$i]}" "${SESSIONS[@]}"; then
+            SESSIONS+=("${LIVE_SESSION[$i]}")
+        fi
+        i=$((i + 1))
+    done
+
+    best=0
+    for sess in "${SESSIONS[@]}"; do
+        score=0
+        k=0
+        while [ "$k" -lt "${#SAVED_FILE[@]}" ]; do
+            if [ "${SAVED_MINE[$k]}" -eq 0 ] && [ -n "${SAVED_INDEX[$k]}" ] &&
+                find_live_by_index "$sess" "${SAVED_INDEX[$k]}"; then
+                score=$((score + 1))
+            fi
+            k=$((k + 1))
+        done
+        if [ "$score" -gt "$best" ] ||
+            { [ "$score" -eq "$best" ] && [ "$score" -gt 0 ] && [ "$sess" = "$CTX_SESSION" ]; }; then
+            best=$score
+            OWNER=$sess
+        fi
+    done
+    debug "owner session: ${OWNER:-<none>} (context: ${CTX_SESSION:-<none>})"
+fi
+
+# ── Match each saved file to a live window ────────────────────────────────────
+# MATCHED[k] is the live slot the file describes, or -1 when there is none.
+# STATE[k] is what to do with it: rewrite it (bound), delete it (closed), or
+# neither (keep).
+#
+# Files from this server go first and bind by id, so they hold their windows
+# before anything from elsewhere is placed by index onto the same ones.
+
+MATCHED=()
+STATE=()
+CLAIMED=()
+
+k=0
+while [ "$k" -lt "${#SAVED_FILE[@]}" ]; do
+    MATCHED+=(-1)
+    STATE+=(keep)
+    k=$((k + 1))
+done
+
+# This server: the id is the window, and its absence is a window that closed.
+k=0
+while [ "$k" -lt "${#SAVED_FILE[@]}" ]; do
+    i=$k
+    k=$((k + 1))
+    [ "${SAVED_MINE[$i]}" -eq 1 ] || continue
+    base=${SAVED_FILE[$i]}
+
+    if [ -z "${SAVED_WID[$i]}" ]; then
+        debug "leaving $base alone (from this server but no window_id to bind on)"
+        continue
+    fi
+    if ! find_live_by_id "${SAVED_WID[$i]}"; then
+        STATE[$i]=closed
+        continue
+    fi
+    if in_list "${LIVE_ID[$FOUND]}" "${CLAIMED[@]}"; then
+        debug "leaving $base alone (window ${LIVE_ID[$FOUND]} already claimed)"
+        continue
+    fi
+    CLAIMED+=("${LIVE_ID[$FOUND]}")
+    MATCHED[$i]=$FOUND
+    STATE[$i]=bound
+done
+
+# Everywhere else: the ids are from a server that is gone, so the index is all
+# there is to go on, and a file that matches nothing is left where it is.
+k=0
+while [ "$k" -lt "${#SAVED_FILE[@]}" ]; do
+    i=$k
+    k=$((k + 1))
+    [ "${SAVED_MINE[$i]}" -eq 0 ] || continue
+    base=${SAVED_FILE[$i]}
+
+    if [ -z "$OWNER" ] || [ -z "${SAVED_INDEX[$i]}" ] ||
+        ! find_live_by_index "$OWNER" "${SAVED_INDEX[$i]}"; then
+        debug "no window for $base (index ${SAVED_INDEX[$i]:-<none>} in session ${OWNER:-<none>})"
+        continue
+    fi
+    if in_list "${LIVE_ID[$FOUND]}" "${CLAIMED[@]}"; then
+        debug "leaving $base alone (window ${LIVE_ID[$FOUND]} already claimed)"
+        continue
+    fi
+    CLAIMED+=("${LIVE_ID[$FOUND]}")
+    MATCHED[$i]=$FOUND
+    STATE[$i]=bound
+done
+
+# ── Write ─────────────────────────────────────────────────────────────────────
+# Merge onto the existing object so every field the Claude hook wrote survives,
+# and write to a temp file in the same directory so the move into place is
+# atomic. No file is ever renamed, so there is nothing to stage and no order to
+# get right.
+#
+# window_id and the server pair are written together and only for a window that
+# is live right now. That is what makes a missing id mean a closed window: this
+# server can only be recorded at a moment when the id it is recorded with was
+# one of this server's own windows.
+
+n=0
+k=0
+while [ "$k" -lt "${#SAVED_FILE[@]}" ]; do
+    i=$k
+    k=$((k + 1))
+    base=${SAVED_FILE[$i]}
+    src="$SESSIONS_DIR/$base"
+    m=${MATCHED[$i]}
+
+    if [ "${STATE[$i]}" = "keep" ]; then
+        continue
+    fi
+
+    if [ "${STATE[$i]}" = "closed" ]; then
+        # This server handed out that id and no longer has the window, so the
+        # user closed it. What the file describes is not coming back, and
+        # keeping it would restore a window the user closed on purpose.
+        rm -f "$src"
+        debug "removed $base (window ${SAVED_WID[$i]} was closed)"
+        continue
+    fi
+
+    tmp="$SESSIONS_DIR/.sync.$$.$n.tmp"
+    n=$((n + 1))
+    if jq --arg name "${LIVE_NAME[$m]}" \
+        --arg cwd "${LIVE_PATH[$m]}" \
+        --argjson index "${LIVE_INDEX[$m]}" \
+        --arg window_id "${LIVE_ID[$m]}" \
+        --argjson server_pid "$SERVER_PID" \
+        --arg server_start "$SERVER_START" \
+        '. + {
+            name: $name,
+            cwd: $cwd,
+            index: $index,
+            window_id: $window_id,
+            server_pid: $server_pid,
+            server_start: $server_start
+        }' \
+        "$src" > "$tmp" 2>/dev/null; then
+        if cmp -s "$tmp" "$src"; then
+            rm -f "$tmp"
+        else
+            mv -f "$tmp" "$src"
+            debug "wrote $base (${LIVE_ID[$m]} ${LIVE_NAME[$m]} index ${LIVE_INDEX[$m]})"
+        fi
+    else
+        rm -f "$tmp"
+        debug "leaving $base alone (merge failed)"
+    fi
+done
+
+exit 0
