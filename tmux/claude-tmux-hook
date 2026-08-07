@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Claude hook helper to capture session state for tmux resume.
+# Receives hook event JSON via stdin from Claude and captures tab configuration.
+#
+# Hook input (from stdin):
+#   {
+#     "session_id": "...",
+#     "hook_event_name": "SessionStart|Stop|SessionEnd",
+#     "cwd": "..."
+#   }
+
+set -e
+
+# Read hook input from stdin
+HOOK_INPUT="$(cat)"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TAB_HOOK="$SCRIPT_DIR/tmux-tab-hook"
+
+# Only run if we're in a tmux session
+[ -z "$TMUX" ] && exit 0
+
+# Parse hook input
+CLAUDE_SESSION_ID="$(printf '%s' "$HOOK_INPUT" | jq -r '.session_id // empty')"
+HOOK_EVENT="$(printf '%s' "$HOOK_INPUT" | jq -r '.hook_event_name // empty')"
+CLAUDE_PROJECT_DIR="$(printf '%s' "$HOOK_INPUT" | jq -r '.cwd // empty')"
+
+# Export for tmux-tab-hook to use
+export CLAUDE_SESSION_ID
+export CLAUDE_PROJECT_DIR
+
+# Call the tab hook to capture current state
+if [ -x "$TAB_HOOK" ]; then
+    "$TAB_HOOK"
+fi

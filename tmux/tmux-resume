@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Resume a tmux session from saved configuration, or create a new one.
+#
+# Looks for session config in the directory next to this script:
+#   - If a tmux session exists with the saved config, attach to it
+#   - If not, create a new session with those windows/panes and run the saved commands
+#   - If no config exists, just create an empty session
+#
+# Config format: tab_X.json in the sessions/ directory, where X is the tab number
+#   {
+#     "name": "tab-name",
+#     "command": "command to run",
+#     "cwd": "/optional/working/directory"
+#   }
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SESSIONS_DIR="$SCRIPT_DIR/sessions"
+SESSION_NAME="${1:-main}"
+
+# Create sessions directory if it doesn't exist
+mkdir -p "$SESSIONS_DIR"
+
+# Check if a session with this name already exists
+if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+    tmux attach-session -t "$SESSION_NAME"
+    exit 0
+fi
+
+# Look for saved tab configurations
+TAB_CONFIGS=()
+if ls "$SESSIONS_DIR"/tab_*.json >/dev/null 2>&1; then
+    while IFS= read -r file; do
+        TAB_CONFIGS+=("$file")
+    done < <(find "$SESSIONS_DIR" -name 'tab_[0-9]*.json' -type f | sort -V)
+fi
+
+# Create the session
+if [ ${#TAB_CONFIGS[@]} -eq 0 ]; then
+    # No config found, just create an empty session
+    tmux new-session -d -s "$SESSION_NAME"
+else
+    # Create session with first tab's config
+    first_config="${TAB_CONFIGS[0]}"
+    tab_name=$(jq -r '.name // "tab"' "$first_config")
+    tab_cwd=$(jq -r '.cwd // null' "$first_config")
+    tab_cmd=$(jq -r '.command // ""' "$first_config")
+
+    # Create session with the first tab
+    if [ -n "$tab_cwd" ] && [ "$tab_cwd" != "null" ]; then
+        tmux new-session -d -s "$SESSION_NAME" -c "$tab_cwd"
+    else
+        tmux new-session -d -s "$SESSION_NAME"
+    fi
+
+    # Rename the first window
+    tmux rename-window -t "$SESSION_NAME" "$tab_name"
+
+    # Run the command in the first window
+    if [ -n "$tab_cmd" ]; then
+        tmux send-keys -t "$SESSION_NAME" "$tab_cmd" Enter
+    fi
+
+    # Create additional windows from other tabs
+    for i in "${!TAB_CONFIGS[@]}"; do
+        [ "$i" -eq 0 ] && continue
+
+        config="${TAB_CONFIGS[$i]}"
+        tab_name=$(jq -r '.name // "tab"' "$config")
+        tab_cwd=$(jq -r '.cwd // null' "$config")
+        tab_cmd=$(jq -r '.command // ""' "$config")
+
+        # Create new window
+        if [ -n "$tab_cwd" ] && [ "$tab_cwd" != "null" ]; then
+            tmux new-window -t "$SESSION_NAME" -n "$tab_name" -c "$tab_cwd"
+        else
+            tmux new-window -t "$SESSION_NAME" -n "$tab_name"
+        fi
+
+        # Run command if specified
+        if [ -n "$tab_cmd" ]; then
+            tmux send-keys -t "$SESSION_NAME:$i" "$tab_cmd" Enter
+        fi
+    done
+fi
+
+# Attach to the session
+tmux attach-session -t "$SESSION_NAME"

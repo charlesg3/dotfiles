@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# Hook to capture tmux tab state for resuming.
+# Call this from a Claude hook to save the current tab configuration.
+#
+# Usage:
+#   tmux-tab-hook
+#
+# Environment variables (set by Claude via hooks):
+#   CLAUDE_SESSION_ID: The current Claude session ID
+#   CLAUDE_PROJECT_DIR: The project directory (optional)
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SESSIONS_DIR="$SCRIPT_DIR/sessions"
+
+# Create sessions directory if it doesn't exist
+mkdir -p "$SESSIONS_DIR"
+
+# Check if we're in a tmux session
+if [ -z "$TMUX" ]; then
+    exit 0
+fi
+
+# Extract window/pane info from TMUX env var
+# Format: /path/to/socket,PID,window-index:pane-index
+TMUX_SOCKET=$(echo "$TMUX" | cut -d',' -f1)
+TMUX_PID=$(echo "$TMUX" | cut -d',' -f2)
+TMUX_WINDOW_INDEX=$(echo "$TMUX" | cut -d',' -f3 | cut -d':' -f1)
+
+# Get the tmux session name from the socket path
+TMUX_SESSION_NAME=$(tmux display-message -p -S "$TMUX_SOCKET" '#{session_name}' 2>/dev/null || echo "main")
+
+# If CLAUDE_SESSION_ID is not provided, try to read it from a file
+if [ -z "$CLAUDE_SESSION_ID" ]; then
+    CLAUDE_SESSION_FILE="$HOME/.claude/current-session-id"
+    if [ -f "$CLAUDE_SESSION_FILE" ]; then
+        CLAUDE_SESSION_ID=$(cat "$CLAUDE_SESSION_FILE")
+    fi
+fi
+
+# Get current directory (prefer the Claude project dir if available)
+CWD="${CLAUDE_PROJECT_DIR:-.}"
+if [ ! -d "$CWD" ]; then
+    CWD="."
+fi
+CWD="$(cd "$CWD" && pwd)"
+
+# Get the tmux window name
+TMUX_WINDOW_NAME=$(tmux display-message -p -S "$TMUX_SOCKET" -t "$TMUX_SESSION_NAME:$TMUX_WINDOW_INDEX" '#{window_name}')
+
+# Determine the command to run based on current context
+# Check if we're in nvim/vim (can check $NVIM, $VIM env vars)
+IN_VIM=0
+if [ -n "${NVIM:-}" ] || [ -n "${VIM:-}" ]; then
+    IN_VIM=1
+fi
+
+# Build the resume command with session ID if available
+if [ -n "$CLAUDE_SESSION_ID" ]; then
+    RESUME_FLAG="--session $CLAUDE_SESSION_ID"
+else
+    RESUME_FLAG=""
+fi
+
+# Determine command based on vim status
+if [ "$IN_VIM" -eq 1 ]; then
+    # If in vim, create a command that opens vim-claude with the session
+    if [ -n "$RESUME_FLAG" ]; then
+        COMMAND="nvim -c \"rightbelow vsplit | terminal claude --dangerously-skip-permissions $RESUME_FLAG\" -c \"startinsert\""
+    else
+        COMMAND="nvim -c \"rightbelow vsplit | terminal claude --dangerously-skip-permissions\" -c \"startinsert\""
+    fi
+else
+    # Otherwise, just run claude to resume the session
+    if [ -n "$RESUME_FLAG" ]; then
+        COMMAND="claude --dangerously-skip-permissions $RESUME_FLAG"
+    else
+        COMMAND="claude --dangerously-skip-permissions"
+    fi
+fi
+
+# Create the tab configuration JSON
+TAB_CONFIG=$(jq -n \
+    --arg name "$TMUX_WINDOW_NAME" \
+    --arg cwd "$CWD" \
+    --arg command "$COMMAND" \
+    '{
+        name: $name,
+        cwd: $cwd,
+        command: $command,
+        claude_session_id: '"${CLAUDE_SESSION_ID:+\"$CLAUDE_SESSION_ID\"}"',
+        timestamp: now | todate
+    }')
+
+# Write the configuration to the tab file
+TAB_FILE="$SESSIONS_DIR/tab_${TMUX_WINDOW_INDEX}.json"
+echo "$TAB_CONFIG" | jq . > "$TAB_FILE"
