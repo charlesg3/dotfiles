@@ -230,6 +230,7 @@ if command -v claude &>/dev/null; then
     header "Claude Code"
 
     link "$DOTFILES/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+    link "$DOTFILES/claude/WORKFLOW.md" "$HOME/.claude/WORKFLOW.md"
     link "$DOTFILES/claude/docs" "$HOME/.claude/docs"
     link "$DOTFILES/claude/skills" "$HOME/.claude/skills"
 

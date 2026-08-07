@@ -1,5 +1,9 @@
 # Global Claude Instructions
 
+## Workflow notes
+
+@~/.claude/WORKFLOW.md
+
 ## Site-specific notes (not tracked in this repo)
 
 @~/.claude/SITE.md
