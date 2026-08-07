@@ -22,14 +22,41 @@ if [ -z "$TMUX" ]; then
     exit 0
 fi
 
-# Extract window/pane info from TMUX env var
-# Format: /path/to/socket,PID,window-index:pane-index
+# Extract server info from TMUX env var
+# Format: /path/to/socket,server-pid,session-id
 TMUX_SOCKET=$(echo "$TMUX" | cut -d',' -f1)
 TMUX_PID=$(echo "$TMUX" | cut -d',' -f2)
-TMUX_WINDOW_INDEX=$(echo "$TMUX" | cut -d',' -f3 | cut -d':' -f1)
 
-# Get the tmux session name from the socket path
-TMUX_SESSION_NAME=$(tmux display-message -p -S "$TMUX_SOCKET" '#{session_name}' 2>/dev/null || echo "main")
+# Find the pane this hook runs in by walking up the process ancestry until a
+# pid matches a pane pid. The hook is usually several levels below the pane
+# process (nvim, claude, and their shells all sit in between), and it often
+# runs from a pane that is not the active one, so display-message without -t
+# would report a different window.
+TMUX_SESSION_NAME=""
+TMUX_WINDOW_INDEX=""
+TMUX_PANES=$(tmux list-panes -a -F '#{pane_pid} #{window_index} #{session_name}' 2>/dev/null || true)
+if [ -n "$TMUX_PANES" ]; then
+    walk_pid=$$
+    while [ "$walk_pid" -gt 1 ] 2>/dev/null; do
+        pane_row=$(printf '%s\n' "$TMUX_PANES" | awk -v p="$walk_pid" '$1 == p { print; exit }')
+        if [ -n "$pane_row" ]; then
+            read -r _ TMUX_WINDOW_INDEX TMUX_SESSION_NAME <<< "$pane_row"
+            break
+        fi
+        parent_pid=$(ps -o ppid= -p "$walk_pid" 2>/dev/null | tr -d ' ')
+        if [ -z "$parent_pid" ] || [ "$parent_pid" = "$walk_pid" ]; then
+            break
+        fi
+        walk_pid=$parent_pid
+    done
+fi
+
+# Fall back to the active window if no pane matched (detached session, or ps
+# or tmux unavailable)
+if [ -z "$TMUX_SESSION_NAME" ] || [ -z "$TMUX_WINDOW_INDEX" ]; then
+    TMUX_SESSION_NAME=$(tmux display-message -p '#{session_name}' 2>/dev/null || echo "main")
+    TMUX_WINDOW_INDEX=$(tmux display-message -p '#{window_index}' 2>/dev/null || echo "0")
+fi
 
 # If CLAUDE_SESSION_ID is not provided, try to read it from a file
 if [ -z "$CLAUDE_SESSION_ID" ]; then
@@ -47,7 +74,7 @@ fi
 CWD="$(cd "$CWD" && pwd)"
 
 # Get the tmux window name
-TMUX_WINDOW_NAME=$(tmux display-message -p -S "$TMUX_SOCKET" -t "$TMUX_SESSION_NAME:$TMUX_WINDOW_INDEX" '#{window_name}')
+TMUX_WINDOW_NAME=$(tmux display-message -p -t "$TMUX_SESSION_NAME:$TMUX_WINDOW_INDEX" '#{window_name}')
 
 # Determine the command to run based on current context
 # Check if we're in nvim/vim (can check $NVIM, $VIM env vars)
