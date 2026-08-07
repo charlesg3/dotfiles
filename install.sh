@@ -82,7 +82,9 @@ link() {
         warn "$dst exists (not a symlink), backing up to ${dst}.bak"
         mv "$dst" "${dst}.bak"
     fi
-    ln -sf "$src" "$dst"
+    # -n so that if $dst is already a symlink to a directory we replace the
+    # link itself rather than creating a new link *inside* the target dir.
+    ln -sfn "$src" "$dst"
     ok "$dst"
 }
 

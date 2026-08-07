@@ -34,6 +34,15 @@ print("Copied!")
 - `declareTypes` before setting values is required — setting without declaring causes paste to fail
 - Always include `.string` as a fallback for apps that don't read HTML
 
+## Clipboard content style
+
+- **Never use em-dashes (the long dash character) in content I'm copying to the
+  clipboard.** Em-dashes are a strong AI-writing tell and create a "clearly
+  written by AI" smell in messages I send to others. Use commas, periods, or
+  restructure the sentence.
+- This applies to anything destined for `pbcopy` or otherwise meant to be sent
+  out as the user: DMs, emails, posts, comments, notes others will read.
+
 ## Reference Docs
 
 When working with **Mermaid diagrams**, read `~/.claude/docs/unicode-symbols-mermaid.md` for the unicode symbol conventions to use in diagram nodes.

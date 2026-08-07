@@ -42,7 +42,7 @@ unset _dotfiles
 # set terminal title to user@host:dir
 case "$TERM" in
 xterm*|rxvt*|vt102|screen*)
-    PROMPT_COMMAND='echo -ne "\033]0;${USER}@${HOSTNAME}: ${PWD}\007"'
+    PROMPT_COMMAND='[[ -z "$_sticky_title" ]] && echo -ne "\033]0;${USER}@${HOSTNAME}: ${PWD}\007"'
     export PROMPT_COMMAND
     ;;
 esac

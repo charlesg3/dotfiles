@@ -49,6 +49,15 @@ fi
 
 alias kitty-reload='kill -SIGUSR1 $(pgrep -x kitty)'
 
+clear_history() {
+    if [ -n "$ZSH_VERSION" ]; then
+        # ": >" not bare ">" — in zsh a bare redirection runs NULLCMD (cat) and hangs on stdin
+        : > "${HISTFILE:-$HOME/.zsh_history}" && fc -R "${HISTFILE:-$HOME/.zsh_history}"
+    else
+        history -c && : > "${HISTFILE:-$HOME/.bash_history}"
+    fi
+}
+
 alias grep='grep --color=auto'
 alias igrep='grep -i --color=auto'
 alias rgrep='grep -r --color=auto'
@@ -62,6 +71,11 @@ tms() { local name; name="$(basename "$PWD" | tr ' ' '-')"; tmux new-session -As
 
 # Set terminal window title (handles nvim, tmux, and plain terminal)
 title() {
+  if [[ -z "$*" ]]; then
+    unset _sticky_title
+    return
+  fi
+  export _sticky_title="$*"
   if [[ -n "$NVIM" ]]; then
     nvim --server "$NVIM" --remote-send ":Title $*<CR>"
   fi
@@ -75,8 +89,8 @@ title() {
 weather() { curl "wttr.in/${1:-80302}"; }
 alias whatsmyip='curl -s ifconfig.me && echo'
 
-# player_client=tv avoids the GVS PO-token requirement that 403s the default web client on age-restricted videos
-alias yt-dl-mp3='yt-dlp --output "%(title)s.%(ext)s" --yes-playlist --cookies ~/Downloads/youtube.com_cookies.txt --extractor-args "youtube:player_client=tv" -x --audio-format mp3'
+# default web client + browser-exported cookies; player_client=tv removed (was breaking downloads)
+alias yt-dl-mp3='yt-dlp --output "%(title)s.%(ext)s" --yes-playlist --cookies ~/Downloads/youtube.com_cookies.txt -x --audio-format mp3'
 
 # VNC resolution switching (macOS only)
 if [ "$(uname)" = "Darwin" ]; then

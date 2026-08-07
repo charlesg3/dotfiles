@@ -65,7 +65,7 @@ unset -f _source_if
 # ── Terminal title ────────────────────────────────────────────────────────────
 # Appended after Kitty's shell integration so our hook runs last and wins.
 _title_preexec() { printf '\033]0;%s\007' "$1" }
-_title_precmd()  { print -Pn '\033]0;zsh: %1~\007' }
+_title_precmd()  { [[ -n "$_sticky_title" ]] && return; print -Pn '\033]0;zsh: %1~\007' }
 preexec_functions+=(_title_preexec)
 precmd_functions+=(_title_precmd)
 
