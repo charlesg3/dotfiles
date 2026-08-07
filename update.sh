@@ -120,7 +120,7 @@ if command -v brew &>/dev/null; then
     header "Homebrew"
     _spin "fetching updates"
     brew update -q &>/dev/null
-    _brew_preload "${BREW_PKGS[@]}" docker docker-buildx vault node
+    _brew_preload "${BREW_PKGS[@]}" docker docker-buildx vault
     _clear_spin
 
     for pkg in "${BREW_PKGS[@]}"; do
@@ -130,7 +130,8 @@ if command -v brew &>/dev/null; then
     _brew_update docker         "$UPDATE_DOCKER" "--docker"
     _brew_update docker-buildx  "$UPDATE_DOCKER" "--docker"
     _brew_update vault          "$UPDATE_VAULT"  "--vault"
-    _brew_update node   "$UPDATE_NODE"   "--node"
+    # node deliberately absent: install-node.sh below owns it, and upgrading the
+    # plain `node` formula here would pull Current back over the pinned LTS.
 fi
 
 # ── Node ──────────────────────────────────────────────────────────────────────
