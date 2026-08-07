@@ -133,6 +133,17 @@ if command -v brew &>/dev/null; then
     _brew_update node   "$UPDATE_NODE"   "--node"
 fi
 
+# ── Node ──────────────────────────────────────────────────────────────────────
+
+# install-node.sh owns the "which node, from where" decision so install.sh and
+# update.sh cannot drift apart. Without --node it only reports, and returns
+# nonzero when an upgrade is available.
+if [[ "$UPDATE_NODE" == true ]]; then
+    bash "$DOTFILES/install-node.sh" || true
+else
+    bash "$DOTFILES/install-node.sh" --check || true
+fi
+
 # ── npm ───────────────────────────────────────────────────────────────────────
 
 if command -v npm &>/dev/null; then
@@ -147,19 +158,10 @@ if command -v npm &>/dev/null; then
     node_bin="$(command -v node 2>/dev/null)"
     if command -v apt-get &>/dev/null && [[ -n "$node_bin" ]] \
         && dpkg -S "$(readlink -f "$node_bin")" &>/dev/null; then
-        node_inst=$(apt-cache policy nodejs 2>/dev/null | awk '/Installed:/{print $2}')
-        node_cand=$(apt-cache policy nodejs 2>/dev/null | awk '/Candidate:/{print $2}')
         _spin "npm"
         latest=$(npm view npm version 2>/dev/null || echo "")
         _clear_spin
         if [[ "$UPDATE_NODE" == true ]]; then
-            if [[ -n "$node_cand" && "$node_inst" != "$node_cand" ]]; then
-                _spin "nodejs (apt)"
-                sudo apt-get install -y -qq --only-upgrade nodejs >/dev/null 2>&1 || true
-                _clear_spin; updated "nodejs ${YELLOW}$node_inst → $node_cand${RESET}"
-            else
-                ok "nodejs ${DIM}$node_inst${RESET}"
-            fi
             if [[ -n "$latest" && "$(npm --version)" != "$latest" ]]; then
                 before_npm="$(npm --version)"
                 _spin "npm (official installer)"
@@ -169,11 +171,6 @@ if command -v npm &>/dev/null; then
                 ok "npm ${DIM}$(npm --version)${RESET}"
             fi
         else
-            if [[ -n "$node_cand" && "$node_inst" != "$node_cand" ]]; then
-                warn "nodejs: ${YELLOW}$node_inst → $node_cand${RESET} available — re-run with --node to upgrade"
-            else
-                ok "nodejs ${DIM}$node_inst${RESET}"
-            fi
             if [[ -n "$latest" && "$current" != "$latest" ]]; then
                 warn "npm: ${YELLOW}$current → $latest${RESET} available — re-run with --node to upgrade"
             else
@@ -186,7 +183,13 @@ if command -v npm &>/dev/null; then
         latest=$(npm view npm version 2>/dev/null || echo "")
         _clear_spin
         if [[ "$UPDATE_NODE" == true ]]; then
-            npm install -g npm --quiet && ok "npm ${DIM}updated${RESET}" || true
+            if [[ -n "$latest" && "$current" != "$latest" ]]; then
+                _spin "npm"
+                npm install -g npm &>/dev/null || true
+                _clear_spin; updated "npm ${YELLOW}$current → $(npm --version)${RESET}"
+            else
+                ok "npm ${DIM}$current${RESET}"
+            fi
         elif [[ -n "$latest" && "$current" != "$latest" ]]; then
             warn "npm: ${YELLOW}$current → $latest${RESET} available — re-run with --node to upgrade"
         else

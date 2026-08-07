@@ -214,21 +214,7 @@ fi
 # ── Node ──────────────────────────────────────────────────────────────────────
 
 if [[ "$INSTALL_NODE" == true ]]; then
-    header "Node"
-    if command -v node &>/dev/null; then
-        ok "node ($(node --version))"
-    elif command -v brew &>/dev/null; then
-        warn "Installing node..."
-        brew install node
-        ok "node installed ($(node --version))"
-    elif command -v apt-get &>/dev/null; then
-        warn "Installing node via NodeSource..."
-        curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-        sudo apt-get install -y nodejs
-        ok "node installed ($(node --version))"
-    else
-        warn "node: no supported package manager"
-    fi
+    bash "$DOTFILES/install-node.sh"
 fi
 
 # ── Claude Code ───────────────────────────────────────────────────────────────
