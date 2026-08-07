@@ -25,10 +25,40 @@ This system allows you to save and resume tmux sessions with their Claude contex
 
 ### Configuration
 
-The hook is already wired into `~/.claude/settings.json`:
-- SessionStart hook calls `claude-tmux-hook` to capture tab state when Claude starts
+**Option 1: Automatic installation (recommended)**
+
+```bash
+~/src/dotfiles/tmux/tmux-resume install
+```
+
+This will:
+- Check your `~/.claude/settings.json`
+- Create a backup (`settings.json.backup`)
+- Add `claude-tmux-hook` to the SessionStart hooks
+- Verify the installation
+
+**Option 2: Manual installation**
+
+Add this to the `SessionStart` hooks in `~/.claude/settings.json`:
+
+```json
+{
+  "type": "command",
+  "command": "~/src/dotfiles/tmux/claude-tmux-hook"
+}
+```
 
 ### Usage
+
+#### First-time setup
+
+Install the Claude hook:
+
+```bash
+~/src/dotfiles/tmux/tmux-resume install
+```
+
+This adds the capture hook to `~/.claude/settings.json` and creates a backup.
 
 #### Starting a new session with resume capability
 

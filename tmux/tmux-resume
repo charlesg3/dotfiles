@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Resume a tmux session from saved configuration, or create a new one.
 #
+# Usage:
+#   tmux-resume [session-name]     - Resume or create a session
+#   tmux-resume install            - Install hooks to Claude settings
+#
 # Looks for session config in the directory next to this script:
 #   - If a tmux session exists with the saved config, attach to it
 #   - If not, create a new session with those windows/panes and run the saved commands
@@ -17,7 +21,64 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SESSIONS_DIR="$SCRIPT_DIR/sessions"
+CLAUDE_HOOK_PATH="$SCRIPT_DIR/claude-tmux-hook"
+
+# ============================================================================
+# Install function - adds hooks to Claude settings
+# ============================================================================
+install_hooks() {
+    CLAUDE_SETTINGS="$HOME/.claude/settings.json"
+
+    if [ ! -f "$CLAUDE_SETTINGS" ]; then
+        echo "Error: $CLAUDE_SETTINGS not found"
+        echo "Please set up Claude Code first (run 'claude' to initialize)"
+        return 1
+    fi
+
+    # Check if hook is already installed
+    if grep -q "claude-tmux-hook" "$CLAUDE_SETTINGS" 2>/dev/null; then
+        echo "Hook already installed in $CLAUDE_SETTINGS"
+        return 0
+    fi
+
+    echo "Installing tmux-resume hooks to $CLAUDE_SETTINGS..."
+
+    # Create a backup
+    cp "$CLAUDE_SETTINGS" "$CLAUDE_SETTINGS.backup"
+    echo "Backup created: $CLAUDE_SETTINGS.backup"
+
+    # Add the hook to SessionStart hooks array
+    # This uses jq to safely add the hook object if it doesn't exist
+    jq '.hooks.SessionStart[0].hooks += [
+        {
+            "type": "command",
+            "command": "'"$CLAUDE_HOOK_PATH"'"
+        }
+    ]' "$CLAUDE_SETTINGS" > "$CLAUDE_SETTINGS.tmp"
+
+    if [ $? -ne 0 ]; then
+        echo "Error: Failed to add hook to settings"
+        rm -f "$CLAUDE_SETTINGS.tmp"
+        return 1
+    fi
+
+    mv "$CLAUDE_SETTINGS.tmp" "$CLAUDE_SETTINGS"
+    echo "✓ Successfully installed tmux-resume hook"
+    echo "  Hook will run on SessionStart to capture tmux tab state"
+    echo ""
+    echo "Next steps:"
+    echo "  1. Start a new Claude session in a tmux window"
+    echo "  2. The hook will automatically capture the tab configuration"
+    echo "  3. Use 'tmux-resume' to restore the session later"
+}
+
 SESSION_NAME="${1:-main}"
+
+# Handle install command
+if [ "$SESSION_NAME" = "install" ]; then
+    install_hooks
+    exit $?
+fi
 
 # Create sessions directory if it doesn't exist
 mkdir -p "$SESSIONS_DIR"
