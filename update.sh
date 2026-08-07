@@ -295,14 +295,34 @@ if command -v vault &>/dev/null && ! dpkg -s vault &>/dev/null; then
         ok "vault ${DIM}$installed${RESET}"
     elif [[ "$UPDATE_VAULT" == true ]]; then
         _spin "vault upgrading to $latest"
+        # The OS belongs in the URL. Hardcoding linux here put an ELF binary at
+        # /usr/local/bin/vault on macOS, where every call then died with
+        # "exec format error" — and the old code still reported success,
+        # because it never ran what it installed.
+        os=$(uname -s | tr '[:upper:]' '[:lower:]')
         arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
         tmp="$(mktemp -d)"
-        curl -fsSL "https://releases.hashicorp.com/vault/${latest}/vault_${latest}_linux_${arch}.zip" \
-            -o "$tmp/vault.zip"
-        unzip -q "$tmp/vault.zip" -d "$tmp"
-        sudo mv "$tmp/vault" /usr/local/bin/vault
+        vault_ok=false
+        if curl -fsSL "https://releases.hashicorp.com/vault/${latest}/vault_${latest}_${os}_${arch}.zip" \
+                -o "$tmp/vault.zip" \
+            && unzip -q "$tmp/vault.zip" -d "$tmp" \
+            && "$tmp/vault" version &>/dev/null; then
+            # Overwrite in place when the file is ours; /usr/local/bin is
+            # root-owned, so a mv would need sudo that a non-interactive shell
+            # cannot supply, while the binary itself is usually user-owned.
+            if [ -w /usr/local/bin/vault ]; then
+                cat "$tmp/vault" > /usr/local/bin/vault && vault_ok=true
+            else
+                sudo mv "$tmp/vault" /usr/local/bin/vault && vault_ok=true
+            fi
+        fi
         rm -rf "$tmp"
-        _clear_spin; ok "vault ${GREEN}$latest${RESET} ${DIM}(updated from $installed)${RESET}"
+        _clear_spin
+        if [[ "$vault_ok" == true ]]; then
+            ok "vault ${GREEN}$(vault version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)${RESET} ${DIM}(updated from $installed)${RESET}"
+        else
+            err "vault upgrade to $latest failed — left $installed in place"
+        fi
     else
         warn "vault: ${YELLOW}$installed → $latest${RESET} available — re-run with --vault to upgrade"
     fi
