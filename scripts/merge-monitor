@@ -50,8 +50,10 @@
 
 set -uo pipefail
 
+# Print the header block itself rather than a line range, so editing the header
+# cannot silently truncate --help.
 usage() {
-  sed -n '3,47p' "$0" | sed 's/^# \{0,1\}//'
+  awk 'NR<3 {next} /^#/ {sub(/^# ?/, ""); print; next} {exit}' "$0"
 }
 
 MR=""
@@ -200,7 +202,8 @@ cands = [p for p in d if p.get("ref") == target] or d
 # Only the push pipeline gates the target branch. Scheduled, trigger and
 # manual (web) pipelines run against the same commit with a much reduced job
 # set and can carry a higher id, so selecting by id reports green off a
-# pipeline that never built anything.
+# pipeline that never built anything. Measured on one project: a push pipeline
+# ran ~38 jobs where a web re-run ran 1 and a scheduled run a handful.
 push = [p for p in cands if p.get("source") == "push"]
 cands = push or cands
 best = max(cands, key=lambda p: p["id"]) if cands else None
