@@ -1,0 +1,403 @@
+#!/usr/bin/env bash
+#
+# merge-monitor - watch a GitLab MR through review, merge, and the post-merge
+# pipeline, emitting one line per state change.
+#
+# Designed to be driven by a Claude Monitor task: each stdout line becomes one
+# notification, so the script stays silent unless something actually changed.
+#
+# Usage:
+#   merge-monitor <MR> [--project ID|PATH] [--poll SECONDS]
+#
+# With no --project it resolves the project from origin's URL in the current
+# directory. Project ids are numeric wherever possible: some proxies mishandle
+# the URL-encoded slash in projects/group%2Fname/..., which comes back as a 404,
+# so a path is turned into an id once up front rather than encoded per request.
+#
+# Two phases. Pre-merge it watches the MR. Once merged it follows the merge
+# commit's pipeline on the target branch until that pipeline is terminal, so a
+# flaky job after the merge gets the same treatment as one before it. Landing a
+# merge is not the same as landing it green.
+#
+# Events:
+#   [pipeline] X -> Y                MR pipeline status transition
+#   [merge-status] X -> Y            mergeability changed; this is what catches
+#                                    a merge train dropping the MR, since the
+#                                    train runs its own pipeline that is not the
+#                                    MR's head_pipeline
+#   [job-failed] <id>|<name>|allow_failure=..|<url>
+#   [note] <author>: <body>          a real comment, human or bot
+#   [event] <author>: <body>         approvals, pushes, draft flips
+#   [ready-to-merge] ...             green + approved + resolved + no conflicts
+#   [merged] <sha>                   switches to post-merge watching, or exits
+#                                    when the target is not the default branch,
+#                                    since only that branch runs a push pipeline
+#                                    for the merge commit
+#   [post-pipeline] X -> Y           merge commit's pipeline on the target branch
+#   [post-job-failed] <id>|<name>|allow_failure=..|<url>
+#   [post-failed] <sha>              that pipeline went red; keeps polling so a
+#                                    retry is picked up
+#   [post-green] <sha>               terminal, script exits
+#   [closed] ...                     terminal, script exits
+#
+# Note filtering: real comments are always emitted, whoever wrote them, so a
+# review bot that posts findings is not silently dropped. GitLab system notes
+# are noisy, so only the ones worth reacting to come through as [event]:
+# approvals and unapprovals, new or force-pushed commits, draft/ready flips,
+# thread resolution, target-branch changes, and auto-merge arm/abort.
+#
+# Requires: glab (authenticated), python3.
+
+set -uo pipefail
+
+usage() {
+  sed -n '3,47p' "$0" | sed 's/^# \{0,1\}//'
+}
+
+MR=""
+PROJECT=""
+POLL=90
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --project) PROJECT="$2"; shift 2 ;;
+    --poll)    POLL="$2";    shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *)
+      if [ -z "$MR" ]; then MR="$1"; shift
+      else echo "unexpected argument: $1" >&2; exit 1
+      fi
+      ;;
+  esac
+done
+
+if [ -z "$MR" ]; then
+  echo "usage: $(basename "$0") <MR> [--project ID|PATH] [--poll SECONDS]" >&2
+  exit 1
+fi
+
+command -v glab    >/dev/null 2>&1 || { echo "glab not found" >&2; exit 1; }
+command -v python3 >/dev/null 2>&1 || { echo "python3 not found" >&2; exit 1; }
+
+# Turn a group/name path into a numeric id via ?search=, which keeps the slash
+# out of the request path. projects/group%2Fname 404s through some proxies.
+resolve_project_id() {
+  local path="$1" name="${1##*/}"
+  glab api "projects?search=${name}&membership=true&per_page=100" 2>/dev/null \
+    | PROJ_PATH="$path" python3 -c '
+import json, os, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    raise SystemExit
+want = os.environ["PROJ_PATH"].lower()
+for p in d:
+    if (p.get("path_with_namespace") or "").lower() == want:
+        print(p["id"]); break
+'
+}
+
+# origin: git@host:group/name.git or https://host/group/name.git
+project_path_from_git() {
+  local url
+  url="$(git remote get-url origin 2>/dev/null)" || return 1
+  [ -n "$url" ] || return 1
+  url="${url%.git}"
+  case "$url" in
+    *://*) echo "${url#*://}" | cut -d/ -f2- ;;
+    *:*)   echo "${url##*:}" ;;
+    *)     return 1 ;;
+  esac
+}
+
+if [ -z "$PROJECT" ]; then
+  gitpath="$(project_path_from_git)" || {
+    echo "no --project given and origin is not a git remote here" >&2; exit 1; }
+  PROJECT="$(resolve_project_id "$gitpath")"
+  [ -n "$PROJECT" ] || { echo "could not resolve project id for $gitpath" >&2; exit 1; }
+elif ! case "$PROJECT" in ''|*[!0-9]*) false ;; *) true ;; esac; then
+  # A path was passed rather than an id.
+  PROJECT="$(resolve_project_id "$PROJECT")"
+  [ -n "$PROJECT" ] || { echo "could not resolve project id" >&2; exit 1; }
+fi
+
+# Which branch runs a push pipeline for a merge commit. Everything else (a
+# release branch, say) only has merge_request_event pipelines against the MR
+# ref, so a commit merged there outside a train never gets one.
+DEFAULT_BRANCH="$(glab api "projects/${PROJECT}" 2>/dev/null \
+  | python3 -c 'import json,sys; print((json.load(sys.stdin).get("default_branch") or ""))' 2>/dev/null)"
+[ -n "$DEFAULT_BRANCH" ] || DEFAULT_BRANCH=main
+
+STATE="/tmp/merge_monitor_${PROJECT}_${MR}.state"
+WORK="/tmp/merge_monitor_${PROJECT}_${MR}"
+touch "$STATE"
+
+get() { grep -m1 "^$1=" "$STATE" 2>/dev/null | cut -d= -f2-; }
+set_() {
+  local k="$1" v="$2"
+  grep -v "^${k}=" "$STATE" > "${STATE}.tmp" 2>/dev/null || true
+  echo "${k}=${v}" >> "${STATE}.tmp"
+  mv "${STATE}.tmp" "$STATE"
+}
+
+# Emit newly-failed jobs for a pipeline. $1=pipeline id, $2=state key holding
+# the seen-id list, $3=event label.
+emit_failed_jobs() {
+  local pid="$1" key="$2" label="$3" seen line jid
+  [ -z "$pid" ] && return 0
+  seen="$(get "$key")"
+  glab api "projects/${PROJECT}/pipelines/${pid}/jobs?per_page=100&scope[]=failed" > "${WORK}_jobs.json" 2>/dev/null || true
+  local newjobs
+  newjobs="$(JOBS_JSON="${WORK}_jobs.json" python3 - <<'PYEOF'
+import json, os
+try:
+    d = json.load(open(os.environ["JOBS_JSON"]))
+except Exception:
+    raise SystemExit
+# An API error is a dict ({"message": "404 ..."}), and iterating that yields
+# key strings, so subscripting them raises. Only a list is a job list.
+if not isinstance(d, list):
+    raise SystemExit
+for j in d:
+    print("%s|%s|allow_failure=%s|%s" % (j["id"], j["name"], j["allow_failure"], j["web_url"]))
+PYEOF
+)"
+  while IFS= read -r line; do
+    if [ -z "$line" ]; then continue; fi
+    jid="${line%%|*}"
+    case ",${seen}," in
+      *",${jid},"*) ;;
+      *)
+        echo "${label} ${line}"
+        seen="${seen},${jid}"
+        ;;
+    esac
+  done <<< "$newjobs"
+  set_ "$key" "$seen"
+}
+
+while true; do
+  PHASE="$(get PHASE)"
+  if [ -z "$PHASE" ]; then PHASE=pre; fi
+
+  # ---------------------------------------------------------------- post-merge
+  if [ "$PHASE" = "post" ]; then
+    MSHA="$(get MERGE_SHA)"
+    TARGET="$(get TARGET)"
+    if [ -z "$TARGET" ]; then TARGET="$DEFAULT_BRANCH"; fi
+
+    glab api "projects/${PROJECT}/pipelines?sha=${MSHA}&per_page=20" > "${WORK}_post.json" 2>/dev/null || true
+    eval "$(POST_JSON="${WORK}_post.json" TARGET="$TARGET" python3 - <<'PYEOF'
+import json, os, shlex
+try:
+    d = json.load(open(os.environ["POST_JSON"]))
+except Exception:
+    d = []
+if not isinstance(d, list):
+    d = []
+target = os.environ.get("TARGET", "")
+cands = [p for p in d if p.get("ref") == target] or d
+# Only the push pipeline gates the target branch. Scheduled, trigger and
+# manual (web) pipelines run against the same commit with a much reduced job
+# set and can carry a higher id, so selecting by id reports green off a
+# pipeline that never built anything.
+push = [p for p in cands if p.get("source") == "push"]
+cands = push or cands
+best = max(cands, key=lambda p: p["id"]) if cands else None
+out = {
+    "P_ID": str(best["id"]) if best else "",
+    "P_STATUS": (best.get("status") or "") if best else "",
+}
+for k, v in out.items():
+    print("%s=%s" % (k, shlex.quote(v)))
+PYEOF
+)"
+
+    if [ -n "${P_ID:-}" ]; then
+      prev="$(get POSTPIPE)"
+      if [ "${P_STATUS:-}" != "$prev" ]; then
+        if [ -n "$prev" ]; then echo "[post-pipeline] ${prev} -> ${P_STATUS}"; fi
+        set_ POSTPIPE "${P_STATUS}"
+      fi
+
+      emit_failed_jobs "${P_ID}" POSTJOBS "[post-job-failed]"
+
+      case "${P_STATUS:-}" in
+        success)
+          echo "[post-green] ${MSHA}"
+          exit 0
+          ;;
+        failed|canceled)
+          if [ "$(get POSTRED)" != "${P_STATUS}" ]; then
+            echo "[post-failed] ${MSHA} pipeline ${P_ID} ${P_STATUS}"
+            set_ POSTRED "${P_STATUS}"
+          fi
+          ;;
+        *)
+          set_ POSTRED ""
+          ;;
+      esac
+    fi
+
+    sleep "$POLL"
+    continue
+  fi
+
+  # ----------------------------------------------------------------- pre-merge
+  glab api "projects/${PROJECT}/merge_requests/${MR}" > "${WORK}_mr.json" 2>/dev/null || true
+
+  if [ -s "${WORK}_mr.json" ]; then
+    eval "$(MR_JSON="${WORK}_mr.json" DEFAULT_BRANCH="$DEFAULT_BRANCH" python3 - <<'PYEOF'
+import json, os, shlex
+try:
+    d = json.load(open(os.environ["MR_JSON"]))
+except Exception:
+    raise SystemExit
+# A 404 body is still valid JSON, and .get() on it yields empty fields that
+# look like a real but blank MR, so the poll would run forever against
+# nothing. Report it instead.
+if not isinstance(d, dict) or "iid" not in d:
+    print("M_MISSING=1")
+    raise SystemExit
+hp = d.get("head_pipeline") or {}
+out = {
+    "M_STATE": d.get("state") or "",
+    "M_PIPE": hp.get("status") or "none",
+    "M_PIPE_ID": str(hp.get("id") or ""),
+    "M_SHA": d.get("sha") or "",
+    "M_MERGE_SHA": d.get("merge_commit_sha") or d.get("squash_commit_sha") or "",
+    "M_TARGET": d.get("target_branch") or os.environ.get("DEFAULT_BRANCH", ""),
+    "M_CONFLICT": str(d.get("has_conflicts")),
+    "M_DRAFT": str(d.get("draft")),
+    "M_BLOCK": d.get("detailed_merge_status") or "",
+}
+for k, v in out.items():
+    print("%s=%s" % (k, shlex.quote(v)))
+PYEOF
+)"
+
+    if [ -n "${M_MISSING:-}" ]; then
+      echo "MR !${MR} not found in project ${PROJECT}" >&2
+      exit 1
+    fi
+
+    set_ TARGET "${M_TARGET:-$DEFAULT_BRANCH}"
+
+    if [ "${M_STATE:-}" = "closed" ]; then
+      echo "[closed] MR !${MR} was closed"
+      exit 0
+    fi
+
+    if [ "${M_STATE:-}" = "merged" ]; then
+      msha="${M_MERGE_SHA:-}"
+      if [ -z "$msha" ]; then msha="${M_SHA}"; fi
+
+      # See DEFAULT_BRANCH above: off the default branch there is no push
+      # pipeline for the merge commit, so post-merge watching would poll until
+      # the session ends. Stop at the merge instead.
+      if [ "${M_TARGET:-}" != "$DEFAULT_BRANCH" ]; then
+        echo "[merged] ${msha} (target ${M_TARGET}: no push pipeline, not watching post-merge)"
+        exit 0
+      fi
+
+      echo "[merged] ${msha}"
+      set_ MERGE_SHA "$msha"
+      set_ PHASE post
+      sleep "$POLL"
+      continue
+    fi
+
+    prev_pipe="$(get PIPE)"
+    if [ -n "${M_PIPE:-}" ] && [ "${M_PIPE}" != "$prev_pipe" ]; then
+      if [ -n "$prev_pipe" ]; then echo "[pipeline] ${prev_pipe} -> ${M_PIPE}"; fi
+      set_ PIPE "${M_PIPE}"
+    fi
+
+    # Mergeability transitions. This is the only signal that surfaces a merge
+    # train dropping the MR, because the train's pipeline is not head_pipeline.
+    # Transient states are skipped so the poll does not chatter.
+    prev_block="$(get BLOCK)"
+    if [ -n "${M_BLOCK:-}" ] && [ "${M_BLOCK}" != "$prev_block" ]; then
+      case "${M_BLOCK}|${prev_block}" in
+        checking*|unchecked*|preparing*|*\|checking|*\|unchecked|*\|preparing) ;;
+        *)
+          if [ -n "$prev_block" ]; then echo "[merge-status] ${prev_block} -> ${M_BLOCK}"; fi
+          ;;
+      esac
+      set_ BLOCK "${M_BLOCK}"
+    fi
+
+    emit_failed_jobs "${M_PIPE_ID:-}" JOBS "[job-failed]"
+
+    last_note="$(get NOTE)"
+    if [ -z "$last_note" ]; then last_note=0; fi
+    glab api "projects/${PROJECT}/merge_requests/${MR}/notes?sort=asc&per_page=100" > "${WORK}_notes.json" 2>/dev/null || true
+    notes="$(NOTES_JSON="${WORK}_notes.json" LAST_NOTE="$last_note" python3 - <<'PYEOF'
+import html, json, os, re
+
+try:
+    d = json.load(open(os.environ["NOTES_JSON"]))
+except Exception:
+    raise SystemExit
+if not isinstance(d, list):
+    raise SystemExit
+
+last = int(os.environ.get("LAST_NOTE", "0"))
+
+# System notes worth reacting to. Everything else GitLab generates (labels,
+# assignees, milestones, title/description edits, review requests,
+# "mentioned in") is suppressed.
+KEEP_SYSTEM = re.compile(
+    r"^("
+    r"approved this merge request"
+    r"|unapproved this merge request"
+    r"|added \d+ commit"
+    r"|force-pushed"
+    r"|marked this merge request as (draft|ready)"
+    r"|resolved all threads"
+    r"|changed target branch"
+    r"|enabled an automatic merge"
+    r"|aborted the automatic merge"
+    r"|canceled the automatic merge"
+    r")",
+    re.I,
+)
+
+for n in sorted(d, key=lambda x: x["id"]):
+    if n["id"] <= last:
+        continue
+    author = (n.get("author") or {}).get("username", "")
+    # GitLab embeds HTML in system note bodies (<ul>/<li>/<code>), which is
+    # noise in a one-line event. Drop tags, then unescape entities.
+    body = html.unescape(re.sub(r"<[^>]+>", " ", n.get("body") or ""))
+    body = " ".join(body.split())
+    if n.get("system"):
+        if not KEEP_SYSTEM.match(body):
+            print("%s\tSKIP\t" % n["id"])
+            continue
+        kind = "event"
+    else:
+        kind = "note"
+    print("%s\t%s\t%s: %s" % (n["id"], kind, author, body[:400]))
+PYEOF
+)"
+    while IFS=$'\t' read -r nid kind text; do
+      if [ -z "$nid" ]; then continue; fi
+      case "$kind" in
+        note)  echo "[note] ${text}" ;;
+        event) echo "[event] ${text}" ;;
+      esac
+      last_note="$nid"
+    done <<< "$notes"
+    set_ NOTE "$last_note"
+
+    if [ "${M_PIPE:-}" = "success" ] && [ "${M_CONFLICT:-}" = "False" ] && [ "${M_DRAFT:-}" = "False" ]; then
+      if [ "${M_BLOCK:-}" = "mergeable" ] && [ "$(get READY)" != "1" ]; then
+        echo "[ready-to-merge] pipeline green, approved, discussions resolved, no conflicts"
+        set_ READY 1
+      fi
+    fi
+  fi
+
+  sleep "$POLL"
+done
