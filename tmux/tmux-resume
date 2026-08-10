@@ -2,7 +2,8 @@
 # Resume a tmux session from saved configuration, or create a new one.
 #
 # Usage:
-#   tmux-resume [session-name]     - Resume or create a session
+#   tmux-resume [session-name]     - Resume or create a session. With no name:
+#                                    the session you are in, or main outside tmux
 #   tmux-resume install            - Install hooks to Claude settings
 #
 # Looks for session config in the directory next to this script:
@@ -81,7 +82,24 @@ install_hooks() {
     echo "  3. Use 'tmux-resume' to restore the session later"
 }
 
-SESSION_NAME="${1:-main}"
+# With no argument: inside tmux, act on the session the caller is already in.
+# Defaulting to "main" regardless meant running this from a session named
+# anything else took the "no such session" path and built a second session
+# alongside the live one, which reads as the resume having done nothing.
+# Outside tmux there is no current session to read, so fall back to the name a
+# restore creates.
+if [ -n "${1:-}" ]; then
+    SESSION_NAME="$1"
+elif [ -n "${TMUX:-}" ]; then
+    if [ -n "${TMUX_PANE:-}" ]; then
+        SESSION_NAME=$(tmux display-message -p -t "$TMUX_PANE" '#{session_name}' 2>/dev/null || true)
+    else
+        SESSION_NAME=$(tmux display-message -p '#{session_name}' 2>/dev/null || true)
+    fi
+    SESSION_NAME="${SESSION_NAME:-main}"
+else
+    SESSION_NAME="main"
+fi
 
 # Handle install command
 if [ "$SESSION_NAME" = "install" ]; then
