@@ -64,13 +64,19 @@ alias rgrep='grep -r --color=auto'
 alias irgrep='grep -ri --color=auto'
 
 # tmux session helpers
-# tmr [name] — restore a saved session: the windows, their directories and the
-#              Claude sessions that were running in them. Prefer this over t
-#              after logging in; t only makes an empty session.
-# t [name]   — create or attach to a named session (default: "main")
-# tms        — create or attach to a session named after the current directory
-tmr() { "$HOME/src/dotfiles/tmux/tmux-resume" "$@"; }
-t()   { tmux new-session -As "${1:-main}"; }
+# t [name]   — restore a saved session (default: "main"): its windows, their
+#              directories and the Claude sessions that were running in them.
+#              Creates the session when nothing is saved, and fills in the
+#              missing windows when it already exists. This used to be a bare
+#              new-session, which made an empty session that a later resume
+#              then treated as already restored.
+# tmr [name] — synonym for t
+# tms        — create or attach to a session named after the current directory.
+#              Deliberately not a resume: the saved tabs are one pool, so
+#              restoring them into a per-directory session would pull all of
+#              them in.
+t()   { tmux-resume "$@"; }
+tmr() { t "$@"; }
 tms() { local name; name="$(basename "$PWD" | tr ' ' '-')"; tmux new-session -As "$name"; }
 
 # Set terminal window title (handles nvim, tmux, and plain terminal)
