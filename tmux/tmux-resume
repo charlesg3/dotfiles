@@ -7,8 +7,12 @@
 #   tmux-resume install            - Install hooks to Claude settings
 #
 # Looks for session config in the directory next to this script:
-#   - If a tmux session exists with the saved config, attach to it
-#   - If not, create a new session with those windows/panes and run the saved commands
+#   - If no session of that name exists, create it with those windows and run
+#     the saved commands
+#   - If one does exist, put back only the saved windows it is missing, then
+#     attach. A session that exists is not a session that was restored: `t`
+#     (tmux new-session -As main) and a bare `tmux` both make one out of
+#     nothing, and a resume run into that has to fill it rather than bail
 #   - If no config exists, just create an empty session
 #
 # Config format: win-<epoch>-<rand>.json in the sessions/ directory. The file
@@ -110,19 +114,33 @@ fi
 # Create sessions directory if it doesn't exist
 mkdir -p "$SESSIONS_DIR"
 
-# Check if a session with this name already exists
-if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-    tmux attach-session -t "$SESSION_NAME"
-    exit 0
-fi
+# When a process started, as a string, rendered the way tmux-sync-tabs renders
+# it. Pids are recycled, so a pid on its own can name two different servers.
+proc_start_time() {
+    local out
+    case "$1" in '' | *[!0-9]*) return 1 ;; esac
+    out=$(LC_ALL=C TZ=UTC ps -o lstart= -p "$1" 2>/dev/null) || return 1
+    out=$(printf '%s' "$out" | tr -s ' ' | sed 's/^ *//; s/ *$//')
+    [ -n "$out" ] || return 1
+    printf '%s' "$out"
+}
 
 # Read the saved tabs, in .index order. The file name says nothing about where
 # a window sat, so the order has to come from the field. Anything that is not a
 # JSON object is skipped rather than restored as a blank window.
+#
+# This is read before the session is looked up, because a session that exists
+# is not the same as a session that holds what was saved. `t` (new-session -As
+# main) and a bare `tmux` both leave a session whose windows have nothing to do
+# with these files, and treating that as "already restored" is what made a
+# resume run right after login look like it did nothing at all.
 TAB_INDEX=()
 TAB_NAME=()
 TAB_CWD=()
 TAB_CMD=()
+TAB_WID=()
+TAB_SPID=()
+TAB_SSTART=()
 
 TAB_FILES=()
 for f in "$SESSIONS_DIR"/win-*.json; do
@@ -135,20 +153,175 @@ if [ ${#TAB_FILES[@]} -gt 0 ] && command -v jq >/dev/null 2>&1; then
         [ -n "$line" ] || continue
         idx=${line%%$'\t'*}; line=${line#*$'\t'}
         nm=${line%%$'\t'*}; line=${line#*$'\t'}
-        cw=${line%%$'\t'*}; cmd=${line#*$'\t'}
+        cw=${line%%$'\t'*}; line=${line#*$'\t'}
+        cmd=${line%%$'\t'*}; line=${line#*$'\t'}
+        wid=${line%%$'\t'*}; line=${line#*$'\t'}
+        spid=${line%%$'\t'*}; sstart=${line#*$'\t'}
         TAB_INDEX+=("$idx")
         TAB_NAME+=("$nm")
         TAB_CWD+=("$cw")
         TAB_CMD+=("$cmd")
+        TAB_WID+=("$wid")
+        TAB_SPID+=("$spid")
+        TAB_SSTART+=("$sstart")
     done < <(
         jq -rs '
             to_entries
             | map(select(.value | type == "object"))
             | sort_by([(.value.index // 1e9), .key])
             | .[].value
-            | [(.index // 0 | tostring), (.name // "tab"), (.cwd // ""), (.command // "")]
+            | [(.index // 0 | tostring), (.name // "tab"), (.cwd // ""), (.command // ""),
+               (.window_id // ""), (.server_pid // "" | tostring), (.server_start // "")]
             | @tsv' "${TAB_FILES[@]}" 2>/dev/null
     )
+fi
+
+# ── Placing one tab ───────────────────────────────────────────────────────────
+
+# The live window at <index> of <session>, as "<id> <panes> <command>", or
+# nothing when that index is free.
+window_at() {
+    tmux list-windows -t "$1" -F \
+        '#{window_index} #{window_id} #{window_panes} #{pane_current_command}' 2>/dev/null |
+        awk -v ix="$2" '$1 == ix { print $2, $3, $4; exit }'
+}
+
+# A single pane sitting at a shell prompt with nothing running in it. That is
+# exactly what `t` leaves behind at the index the first saved tab wants, and
+# reusing it is what keeps a restore from stranding an empty window beside the
+# real one.
+is_idle_window() {
+    [ "$1" = "1" ] || return 1
+    case "$2" in bash | zsh | sh | fish | dash | ksh) return 0 ;; esac
+    return 1
+}
+
+# Put saved tab <i> into <session> and echo the window id it landed on. <after>
+# is where to fall back to when the tab's own index is taken by a window that is
+# busy: inserting after the previous window keeps the order and loses only the
+# exact index, which beats dropping the window. <bound> is a live idle window
+# the tab is already bound to, which is taken over wherever it sits rather than
+# left orphaned beside a second window for the same tab.
+place_tab() {
+    local session=$1 i=$2 after=$3 bound=${4:-}
+    local idx=${TAB_INDEX[$i]} name=${TAB_NAME[$i]} cwd=${TAB_CWD[$i]}
+    local occ occ_id occ_panes occ_cmd wid args
+
+    if [ -n "$bound" ]; then
+        tmux rename-window -t "$bound" "$name" 2>/dev/null || true
+        printf '%s' "$bound"
+        return 0
+    fi
+
+    occ=$(window_at "$session" "$idx")
+    if [ -n "$occ" ]; then
+        read -r occ_id occ_panes occ_cmd <<< "$occ"
+        if is_idle_window "$occ_panes" "$occ_cmd"; then
+            tmux rename-window -t "$occ_id" "$name" 2>/dev/null || true
+            # An existing shell's directory can only be changed by telling the
+            # shell, so the cwd rides along with the command below rather than
+            # being set here.
+            printf '%s' "$occ_id"
+            return 0
+        fi
+    fi
+
+    args=(-d -P -F '#{window_id}' -n "$name")
+    if [ -n "$cwd" ] && [ -d "$cwd" ]; then
+        args+=(-c "$cwd")
+    fi
+    wid=$(tmux new-window "${args[@]}" -t "$session:$idx" 2>/dev/null) ||
+        wid=$(tmux new-window "${args[@]}" -a -t "$after")
+    printf '%s' "$wid"
+}
+
+# Send a tab's saved command to the window it was placed on. A window that was
+# reused still has the shell's own directory, so it is moved first; a window
+# that was created got -c and is already there.
+run_tab() {
+    local wid=$1 i=$2 reused=$3
+    local cwd=${TAB_CWD[$i]} cmd=${TAB_CMD[$i]}
+    if [ "$reused" = "1" ] && [ -n "$cwd" ] && [ -d "$cwd" ]; then
+        cmd="cd $(printf '%q' "$cwd")${cmd:+ && $cmd}"
+    fi
+    [ -n "$cmd" ] || return 0
+    tmux send-keys -t "$wid" "$cmd" Enter
+}
+
+# Attach, or switch when this is already running inside tmux: attaching to a
+# session from a pane in that same session is an error, not a no-op.
+enter_session() {
+    if [ -n "${TMUX:-}" ]; then
+        if [ "$(tmux display-message -p '#{session_name}' 2>/dev/null || true)" = "$1" ]; then
+            return 0
+        fi
+        tmux switch-client -t "$1"
+    else
+        tmux attach-session -t "$1"
+    fi
+}
+
+# ── An existing session: put back whatever is missing from it ─────────────────
+
+if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+    SERVER_PID=$(tmux display-message -p -t "$SESSION_NAME" '#{pid}' 2>/dev/null || true)
+    SERVER_START=$(proc_start_time "$SERVER_PID") || SERVER_START=""
+    LIVE_IDS=$(tmux list-windows -t "$SESSION_NAME" -F '#{window_id}' 2>/dev/null || true)
+
+    # A tab is already up only when the window it names is live on the server
+    # that named it *and* something is running in that window. Live-but-idle has
+    # to count as missing: tmux-sync-tabs binds a file to a bare window as soon
+    # as one appears at its index, so after `t` the first saved tab looks bound
+    # while its shell has never run anything. Skipping it there is what would
+    # leave the largest session sitting unrestored behind an empty prompt.
+    #
+    # The cost is that a restored window the user has since quit out of gets its
+    # command run again. That is what asking for a resume means.
+    MISSING=()
+    MISSING_BOUND=()
+    for i in "${!TAB_INDEX[@]}"; do
+        bound=""
+        if [ -n "${TAB_WID[$i]}" ] && [ -n "$SERVER_PID" ] &&
+            [ "${TAB_SPID[$i]}" = "$SERVER_PID" ] &&
+            [ "${TAB_SSTART[$i]}" = "$SERVER_START" ] &&
+            printf '%s\n' "$LIVE_IDS" | grep -qxF -- "${TAB_WID[$i]}"; then
+            state=$(tmux display-message -p -t "${TAB_WID[$i]}" \
+                '#{window_panes} #{pane_current_command}' 2>/dev/null || true)
+            read -r p_count p_cmd <<< "$state"
+            if ! is_idle_window "$p_count" "$p_cmd"; then
+                continue
+            fi
+            bound=${TAB_WID[$i]}
+        fi
+        MISSING+=("$i")
+        MISSING_BOUND+=("$bound")
+    done
+
+    if [ ${#MISSING[@]} -gt 0 ]; then
+        FILL_WID=()
+        FILL_REUSED=()
+        after=$(tmux list-windows -t "$SESSION_NAME" -F '#{window_id}' | head -1)
+        for k in "${!MISSING[@]}"; do
+            i=${MISSING[$k]}
+            before=$(tmux list-windows -t "$SESSION_NAME" -F '#{window_id}' | wc -l)
+            wid=$(place_tab "$SESSION_NAME" "$i" "$after" "${MISSING_BOUND[$k]}")
+            now=$(tmux list-windows -t "$SESSION_NAME" -F '#{window_id}' | wc -l)
+            FILL_WID+=("$wid")
+            if [ "$now" -eq "$before" ]; then FILL_REUSED+=(1); else FILL_REUSED+=(0); fi
+            after=$wid
+        done
+
+        # Bind the files to these windows before anything runs in them, for the
+        # same reason the fresh-session path below does it.
+        tmux run-shell "TMUX_SESSIONS_DIR=$(printf '%q' "$SESSIONS_DIR") $(printf '%q' "$SCRIPT_DIR/tmux-sync-tabs")" >/dev/null 2>&1 || true
+
+        for k in "${!MISSING[@]}"; do
+            run_tab "${FILL_WID[$k]}" "${MISSING[$k]}" "${FILL_REUSED[$k]}"
+        done
+    fi
+
+    enter_session "$SESSION_NAME"
+    exit 0
 fi
 
 # Create the session
@@ -206,4 +379,4 @@ else
 fi
 
 # Attach to the session
-tmux attach-session -t "$SESSION_NAME"
+enter_session "$SESSION_NAME"

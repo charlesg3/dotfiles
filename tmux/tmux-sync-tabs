@@ -100,8 +100,17 @@ LIVE_SESSION=()
 LIVE_INDEX=()
 LIVE_NAME=()
 LIVE_PATH=()
+LIVE_PANES=()
+LIVE_CMD=()
 
 FOUND=-1
+
+# A single pane sitting at a shell prompt with nothing running in it.
+is_idle_window() {
+    [ "$1" = "1" ] || return 1
+    case "$2" in bash | zsh | sh | fish | dash | ksh) return 0 ;; esac
+    return 1
+}
 
 find_live_by_id() {
     local i=0
@@ -178,7 +187,7 @@ case "$SERVER_PID" in '' | *[!0-9]*) exit 0 ;; esac
 SERVER_START=$(proc_start_time "$SERVER_PID") || exit 0
 
 LIVE_OUT=$(tmux list-windows -a -F \
-    "#{window_id}${TAB}#{session_name}${TAB}#{window_index}${TAB}#{window_name}${TAB}#{pane_current_path}" \
+    "#{window_id}${TAB}#{session_name}${TAB}#{window_index}${TAB}#{window_name}${TAB}#{pane_current_path}${TAB}#{window_panes}${TAB}#{pane_current_command}" \
     2>/dev/null) || exit 0
 if [ -z "$LIVE_OUT" ]; then
     exit 0
@@ -190,7 +199,9 @@ while IFS= read -r line; do
     l_id=${line%%"$TAB"*}; line=${line#*"$TAB"}
     l_sess=${line%%"$TAB"*}; line=${line#*"$TAB"}
     l_idx=${line%%"$TAB"*}; line=${line#*"$TAB"}
-    l_name=${line%%"$TAB"*}; l_path=${line#*"$TAB"}
+    l_name=${line%%"$TAB"*}; line=${line#*"$TAB"}
+    l_path=${line%%"$TAB"*}; line=${line#*"$TAB"}
+    l_panes=${line%%"$TAB"*}; l_cmd=${line#*"$TAB"}
     case "$l_id" in @*) ;; *) continue ;; esac
     case "$l_idx" in '' | *[!0-9]*) continue ;; esac
     LIVE_ID+=("$l_id")
@@ -198,6 +209,8 @@ while IFS= read -r line; do
     LIVE_INDEX+=("$l_idx")
     LIVE_NAME+=("$l_name")
     LIVE_PATH+=("$l_path")
+    LIVE_PANES+=("$l_panes")
+    LIVE_CMD+=("$l_cmd")
 done <<< "$LIVE_OUT"
 
 if [ "${#LIVE_ID[@]}" -eq 0 ]; then
@@ -399,6 +412,28 @@ while [ "$k" -lt "${#SAVED_FILE[@]}" ]; do
         continue
     fi
 
+    # An empty window has no identity to contribute. Its name is whatever
+    # automatic-rename made of the shell and its path is wherever that shell
+    # started, so copying them onto the file replaces a real saved tab with
+    # "zsh" and $HOME. That is what a bare session does to every file at its
+    # indices: `t` (new-session -As main) or a plain tmux after a restart lands
+    # windows the tab files rebind onto, and the identity is gone before
+    # tmux-resume can read it. Bind the id so the file knows where it lives now
+    # and leave name and cwd for the restore to put back.
+    #
+    # The test cannot be narrowed to the rebind-by-index pass: the first run
+    # records this server, and every run after it binds by id, where the same
+    # empty window would clobber the file anyway.
+    #
+    # Cost: renaming a window that has nothing running in it does not reach the
+    # file, so a restore brings the old name back. Anything running in the
+    # window makes both fields track again.
+    keep_identity=0
+    if is_idle_window "${LIVE_PANES[$m]}" "${LIVE_CMD[$m]}"; then
+        keep_identity=1
+        debug "keeping saved name/cwd for $base (${LIVE_ID[$m]} is an empty shell)"
+    fi
+
     tmp="$SESSIONS_DIR/.sync.$$.$n.tmp"
     n=$((n + 1))
     if jq --arg name "${LIVE_NAME[$m]}" \
@@ -407,14 +442,14 @@ while [ "$k" -lt "${#SAVED_FILE[@]}" ]; do
         --arg window_id "${LIVE_ID[$m]}" \
         --argjson server_pid "$SERVER_PID" \
         --arg server_start "$SERVER_START" \
+        --argjson keep_identity "$keep_identity" \
         '. + {
-            name: $name,
-            cwd: $cwd,
             index: $index,
             window_id: $window_id,
             server_pid: $server_pid,
             server_start: $server_start
-        }' \
+        }
+        + (if $keep_identity == 1 then {} else {name: $name, cwd: $cwd} end)' \
         "$src" > "$tmp" 2>/dev/null; then
         if cmp -s "$tmp" "$src"; then
             rm -f "$tmp"

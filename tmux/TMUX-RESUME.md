@@ -8,8 +8,15 @@ This system allows you to save and resume tmux sessions with their Claude contex
 
 1. **tmux-resume** — Starts or resumes a tmux session from saved configuration
    - Looks for `sessions/win-*.json` files and restores them in `.index` order
-   - If a session already exists, attaches to it
-   - If not, creates a new session with all windows and runs the saved commands
+   - If no session of that name exists, creates one with all windows and runs
+     the saved commands
+   - If one does exist, puts back only the saved windows it is missing, then
+     attaches. A session existing is not the same as a session holding what was
+     saved: `t` and a bare `tmux` both make an empty one, and treating that as
+     "nothing to do" is what made a resume right after login look like a no-op
+   - A window counts as missing when it is gone, or when it is still sitting at
+     an empty shell prompt with its saved command never run. An empty window at
+     a saved index is taken over rather than left stranded beside the restore
    - If no config found, creates an empty session
 
 2. **tmux-tab-hook** — Captures the current tmux tab state when Claude runs
@@ -22,6 +29,10 @@ This system allows you to save and resume tmux sessions with their Claude contex
    - Run from the `window-renamed`, `window-linked` and `window-unlinked` hooks in `tmux.conf`
    - Matches each file to a window by its `window_id` field, then updates `name`, `cwd` and `index`
    - Leaves `command` and `claude_session_id` alone: only the Claude hook can produce them
+   - Also leaves `name` and `cwd` alone when the matched window is an empty
+     shell. Such a window has no identity to contribute, and copying its `zsh`
+     and `$HOME` over a saved tab is how a bare session silently destroys one
+     before `tmux-resume` can read it
    - Deletes the file when a window this server handed out is gone, which means the user closed it
    - After a server restart the saved ids belong to a dead server, so it rebinds by `index` and deletes nothing
 
