@@ -24,5 +24,10 @@ if [[ "$(uname)" == "Darwin" ]]; then
 else
     # mpg123 --scale range is 0–32768 (default 32768 = full volume)
     scale=$(printf '%.0f' "$(echo "$volume * 32768" | bc)")
-    exec mpg123 --quiet --scale "$scale" "$@"
+    # -o pulse,alsa are the first two backends mpg123 would try anyway. The rest
+    # of its default chain ends in portaudio, and trying portaudio after the alsa
+    # backend has failed segfaults, dropping a core file in the current
+    # directory. ulimit -c 0 suppresses the core if it crashes anyway.
+    ulimit -c 0
+    exec mpg123 -o pulse,alsa --quiet --scale "$scale" "$@"
 fi
