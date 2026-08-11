@@ -265,8 +265,10 @@ fi
 
 # Determine command based on vim status
 if [ "$IN_VIM" -eq 1 ]; then
-    # If in vim, create a command that opens vim-claude with the session
-    COMMAND="nvim -c \"rightbelow vsplit | terminal $(dquote_escape "$CLAUDE_COMMAND")\" -c \"startinsert\""
+    # If in vim, open claude in the window itself. It used to go into a
+    # rightbelow vsplit, which left an empty buffer taking half the window for
+    # no reason: nothing was being read beside the session.
+    COMMAND="nvim -c \"terminal $(dquote_escape "$CLAUDE_COMMAND")\" -c \"startinsert\""
 else
     # Otherwise, just run claude to resume the session
     COMMAND="$CLAUDE_COMMAND"
