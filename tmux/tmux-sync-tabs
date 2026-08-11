@@ -180,6 +180,18 @@ if [ ! -d "$SESSIONS_DIR" ] || [ ! -w "$SESSIONS_DIR" ]; then
     exit 0
 fi
 
+# The lock comes before the first look at tmux, not after it. Deciding that a
+# window was closed rests on the window list, and a list read outside the lock
+# is already stale by the time this run gets to act on it: the wait can be ten
+# seconds, and a restore creating windows fills that wait with exactly the
+# bindings this run has not seen. Those bindings then look like windows that
+# vanished, and the tab files behind them are deleted. Reading under the lock
+# makes the list, the files and the decision one atomic view.
+if ! acquire_lock; then
+    debug "lock busy, skipping"
+    exit 0
+fi
+
 # Which server is running. Every decision below depends on knowing it, so
 # without it there is nothing that can safely be done.
 SERVER_PID=$(tmux display-message -p '#{pid}' 2>/dev/null || true)
@@ -214,11 +226,6 @@ while IFS= read -r line; do
 done <<< "$LIVE_OUT"
 
 if [ "${#LIVE_ID[@]}" -eq 0 ]; then
-    exit 0
-fi
-
-if ! acquire_lock; then
-    debug "lock busy, skipping"
     exit 0
 fi
 
