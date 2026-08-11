@@ -64,8 +64,12 @@ alias rgrep='grep -r --color=auto'
 alias irgrep='grep -ri --color=auto'
 
 # tmux session helpers
-# t [name]  — create or attach to a named session (default: "main")
-# tms       — create or attach to a session named after the current directory
+# tmr [name] — restore a saved session: the windows, their directories and the
+#              Claude sessions that were running in them. Prefer this over t
+#              after logging in; t only makes an empty session.
+# t [name]   — create or attach to a named session (default: "main")
+# tms        — create or attach to a session named after the current directory
+tmr() { "$HOME/src/dotfiles/tmux/tmux-resume" "$@"; }
 t()   { tmux new-session -As "${1:-main}"; }
 tms() { local name; name="$(basename "$PWD" | tr ' ' '-')"; tmux new-session -As "$name"; }
 
