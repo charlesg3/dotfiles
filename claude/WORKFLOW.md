@@ -307,3 +307,45 @@ paste and only once the text has something outside ASCII.
   `osascript -e 'the clipboard as «class HTML»'` and look at a line containing
   the non-ASCII characters, rather than trusting `pbpaste`, which reads the
   plain flavor and stays clean even when the rich one is corrupt.
+
+## Reading a Google Doc through a logged-in browser
+
+Docs renders the body into `<canvas>`, so there is nothing in the DOM to read.
+`.kix-lineview` returns zero elements and `innerText` on the editor gives you
+only the comment sidebar, which looks like content and is not. Screenshots plus
+scrolling do work, but they are slow and lossy on a long doc, so keep them as
+the last resort rather than the first move.
+
+`/export?format=markdown` (or `txt`) is the obvious route and returns **403
+"You need access"** on any doc whose sharing settings disable download, even
+when you can read it fine in the browser. `/feeds/download/documents/export/Export`
+gives the same 403 and `/htmlview` 404s. None of that means you lack access.
+
+**`/mobilebasic` is the one that works.** It is server-rendered HTML, it honors
+the session cookies, and it carries the whole doc: every tab of a tabbed doc in
+order, and the comments as anchored `[a]`, `[b]` footnotes at the end. Fetch it
+from inside a page already on `docs.google.com`, so the cookies ride along and
+nothing has to navigate:
+
+```js
+const r = await fetch(`https://docs.google.com/document/d/${id}/mobilebasic`,
+                      {credentials: 'include'});
+```
+
+Both halves are scripted in the live-session repo (path in site notes):
+`live-session/gdoc-export.mjs` writes the HTML out of the browser, and
+`tools/gdoc2md.py` converts it to Markdown with no dependencies. Reuse them
+rather than re-deriving this, because two things break a naive tag strip:
+
+- **Tables need a grid layout.** Docs puts a `rowspan`'d spacer column between
+  the halves of a two-up table, so the header row has one more cell than the
+  data rows. Trusting per-row cell counts shifts every data row one column left
+  of its header, and the result still looks like a valid table.
+- **There is no code-block element.** A fenced block arrives as a run of
+  monospace paragraphs, one per line, so a `# comment` inside a shell snippet
+  becomes a Markdown heading unless the run is regrouped into a fence.
+
+One more trap while poking at the page: do not build a scratch element and
+assign `innerHTML` to strip tags. Docs enforces Trusted Types, so the assignment
+throws `This document requires 'TrustedHTML' assignment` and that failure reads
+like the fetch failed. Use a regex, or parse the HTML outside the browser.
