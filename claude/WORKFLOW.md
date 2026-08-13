@@ -30,6 +30,12 @@ in the moment.
 - Tests: proportional to risk. Don't write dedicated tests for trivial wrappers
   or simple interfaces when broader scenario coverage already exercises the
   behavior.
+- Chat messages: identifiers go in code spans, every time, not only in review
+  requests. Field names, CR and cluster names, settings, commands, file paths,
+  error strings. `slurmConfigOverride.controllerExtraConfs` and
+  `slurmaas-zdzxhcao` are unreadable as prose and are what the reader will copy.
+  In HTML for Slack that means `<code>`, and it is the first thing to drop by
+  accident when a message is drafted as plain text and marked up afterwards.
 
 ## Verify full behavior before characterizing severity
 
@@ -218,3 +224,86 @@ echo becomes `zsh: == not found`), and single quotes inside inner Python or jq
 need escaping that's easy to get wrong. The heredoc is quoted, so nothing
 expands locally and the remote script reads as written. `bash -s` doesn't read
 the login profile, so set `PATH` explicitly at the top.
+
+## Slack messages: what formatting survives, and tables do not
+
+Measured on Slack's own composer, both by pasting from a real clipboard and by
+driving the editor directly. The composer is Quill, and it converts markup as
+you **type** rather than when text arrives, so anything pasted keeps whatever
+form it arrived in. Backticks pasted as text stay backticks.
+
+**There are no tables in Slack messages.** Tables exist in canvases and in
+lists, not in the message composer, and neither route produces one. Sending
+`<table>` through the editor's own clipboard module flattens it to
+`backendcountsmas17legacy4`, with every cell boundary gone; sending the same
+table as the HTML flavour of a real clipboard makes Slack ignore it and take
+the plain-text flavour instead.
+
+The first is the dangerous one, because the cells run together into something
+that reads like data rather than like a failure.
+
+**Send a code block instead.** It is the only construct that holds columns,
+because it is fixed width, and it survives both routes intact:
+
+```
+backend  count
+smas     17
+legacy    4
+```
+
+Pad the columns by hand. A list with bold labels also survives and reads better
+for two or three rows.
+
+**What does survive**, both routes: code spans, bold, italic, strikethrough,
+lists, block quotes and code blocks. Links survive as links only when a real
+clipboard carries the HTML flavour; a synthesised paste of the same HTML does
+not, so a labelled link sent that way arrives spelled out.
+
+**A plain-text fallback is not decoration.** When a paste carries both flavours
+Slack may take the plain one, which is exactly what happens to a table. Write
+that fallback so it reads on its own, one row per line, rather than letting it
+collapse into a sentence.
+
+## Rich text to a remote mac's clipboard, the way that sticks
+
+Setting a mac clipboard over a non-interactive ssh session has two traps, and
+both fail quietly. Use `osascript` with a record holding both flavors:
+
+```bash
+scp msg.txt msg.html <host>:/tmp/        # BOTH files must exist on the remote box
+ssh <host> 'bash -s' <<'SCRIPT'
+osascript <<'AS'
+set htmlDat to (read (POSIX file "/tmp/msg.html") as «class HTML»)
+set txtDat to (read (POSIX file "/tmp/msg.txt") as «class utf8»)
+set the clipboard to {«class HTML»:htmlDat, string:txtDat}
+AS
+osascript -e 'clipboard info'            # expect «class HTML» plus string
+pbpaste | head -3                        # reads back only if the string flavor is set
+SCRIPT
+```
+
+**Set the HTML flavor, do not convert to RTF.** Slack reads `«class HTML»`
+directly, and the HTML bytes go on the pasteboard untouched. Routing through
+`textutil ... -convert rtf` adds a conversion that guesses the input encoding,
+lands on Latin-1, and mangles every multi-byte character: a bullet pastes as
+`â€¢` and an arrow as `âž¡ï¸`. The plain-text flavor still looks fine, because
+`osascript` reads it as `«class utf8»`, so the corruption only shows in the rich
+paste and only once the text has something outside ASCII.
+
+- **The Swift `NSPasteboard` snippet in `CLAUDE.md` does nothing over ssh.** It
+  prints "Copied!" and writes nothing, because an AppKit process in a
+  non-interactive session does not own the GUI pasteboard. It is fine when run
+  on the machine's own console. Over ssh it is a silent no-op, so a stale
+  clipboard looks like the copy worked.
+- **`pbcopy` works over ssh but sets one flavor.** `pbcopy -Prefer rtf` leaves
+  no plain-text flavor, so `pbpaste` comes back empty and there is no way to
+  confirm what landed. `clipboard info` still reports the RTF, which is the only
+  check available in that case.
+- **Both source files have to be on the remote box.** Referencing a local path
+  from the remote `osascript` fails with `Can't make file ... into type file`.
+- Always verify with `pbpaste`, not with the exit status. Every wrong attempt
+  here reported success.
+- Verify the glyphs, not only that text came back. Decode the HTML flavor with
+  `osascript -e 'the clipboard as «class HTML»'` and look at a line containing
+  the non-ASCII characters, rather than trusting `pbpaste`, which reads the
+  plain flavor and stays clean even when the rich one is corrupt.
