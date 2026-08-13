@@ -232,8 +232,11 @@ driving the editor directly. The composer is Quill, and it converts markup as
 you **type** rather than when text arrives, so anything pasted keeps whatever
 form it arrived in. Backticks pasted as text stay backticks.
 
-**There are no tables in Slack messages.** Tables exist in canvases and in
-lists, not in the message composer, and neither route produces one. Sending
+**The message composer cannot make a table.** Its toolbar is bold, italic,
+underline, strike, link, ordered list, bullet list, blockquote, code and code
+block, and nothing else — checked by reading the buttons. Tables you have seen in
+Slack are canvases, lists, or a message an app posted through Block Kit, none of
+which a person types into a composer. Neither paste route produces one. Sending
 `<table>` through the editor's own clipboard module flattens it to
 `backendcountsmas17legacy4`, with every cell boundary gone; sending the same
 table as the HTML flavour of a real clipboard makes Slack ignore it and take
