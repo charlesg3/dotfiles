@@ -311,8 +311,20 @@ The Markdown rules are the ones above, applied: a heading becomes bold because
 Slack has none, a table becomes a padded code block, and a labelled link is
 written out as `words (url)` because the composer has no syntax for one.
 
-Needs a machine with a signed-in browser under a long-lived session, and `ssh` to
-it working non-interactively. Which machine is a per-machine setting.
+**It drives Chrome itself, over the debugging protocol.** There is no session
+manager, no daemon and no pid file, and Playwright is not installed anywhere: it
+fetches the target list off `/json/list`, opens a websocket to the page and
+speaks three protocol methods. So what it needs is a browser, not a wrapper
+around one, and a browser that a session manager has lost track of still works.
+
+What a machine has to have: Chrome started with `--remote-debugging-port=9222` on
+the profile that is signed in to Slack, node 22 or newer on the PATH a
+non-interactive `ssh` gets, and `ssh` to it working without a password. **Quit
+Chrome before starting it with the flag** — a second launch hands its arguments
+to the copy already running, which never gets the port and says nothing about it.
+
+`sdraft --dry-run <ref>` renders both forms and drives nothing, so the markup can
+be checked before a browser is involved at all.
 
 ## Rich text to a remote mac's clipboard, the way that sticks
 
