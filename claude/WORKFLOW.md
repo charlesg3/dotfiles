@@ -267,6 +267,53 @@ Slack may take the plain one, which is exactly what happens to a table. Write
 that fallback so it reads on its own, one row per line, rather than letting it
 collapse into a sentence.
 
+## Leaving a reply in a Slack composer, unsent (`sdraft`)
+
+Everything above is about getting formatting onto a clipboard so it survives a
+paste. `sdraft` skips the clipboard: it takes Markdown and leaves it in a
+conversation's composer, formatted, **unsent**. Standalone, with no queue, no
+database and no Slack token. Reach for it when the job is "answer this thread"
+rather than "hand me something to paste".
+
+```bash
+sdraft <ref> [--from <file>]        # or the reply on stdin
+sdraft --dry-run <ref> < reply.md   # the two rendered flavours, drives nothing
+```
+
+**It never sends, and that is a property of the code rather than a habit.** No
+key is pressed and nothing is clicked: the reply arrives as a synthesised paste
+event carrying a DataTransfer, the same event a real cmd-V produces. There is no
+path through it that reaches Slack's send.
+
+`<ref>` is a permalink, a client URL, a bare `C…`/`D…`/`G…`, or an id with a
+thread as `C…/1712300000.000100`. Two things about which composer that means:
+
+- **A permalink with no `thread_ts` is the conversation's own box, not a new
+  thread on that message.** Slack writes the root into the query string for every
+  message that is in a thread, the root included, and leaves it off a message in
+  none. Starting a thread on a particular message is the explicit `C…/<ts>` form.
+- **A conversation's own composer is shared** by every message in it that has no
+  thread, so "draft twice" can mean two different boxes or the same one.
+
+**It replaces only what it left there itself.** A composer holding words somebody
+typed is refused rather than clobbered, and the comparison is against the text
+read back out of that box after the last fill, kept in
+`${XDG_STATE_HOME:-~/.local/state}/sdraft/left.json`. Deleting that file costs one
+refusal per box and never a wrong draft.
+
+**Never a permalink in the browser.** `.../archives/<C>/p<ts>` is a desktop-app
+handoff page, and on a machine with no Slack app every navigation to one throws an
+OS dialog. The address is built the way the client addresses itself,
+`app.slack.com/client/<team>/<channel>`, with the team read out of the browser's
+own current address.
+
+The Markdown rules are the ones above, applied: a heading becomes bold because
+Slack has none, a table becomes a padded code block, and a labelled link is
+written out as `words (url)` because the composer has no syntax for one.
+
+Needs a machine with a signed-in browser under a long-lived session, and `ssh` to
+it working non-interactively. Which machine is a per-machine setting.
+
 ## Rich text to a remote mac's clipboard, the way that sticks
 
 Setting a mac clipboard over a non-interactive ssh session has two traps, and
