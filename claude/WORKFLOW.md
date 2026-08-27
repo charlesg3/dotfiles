@@ -37,6 +37,23 @@ in the moment.
   In HTML for Slack that means `<code>`, and it is the first thing to drop by
   accident when a message is drafted as plain text and marked up afterwards.
 
+Two voice registers, chosen by whether a person or no one in particular is the
+reader:
+
+- Talking to a person (Slack messages, chat replies, anything landing in a
+  DM or channel for someone to read): write like a person explaining their
+  own work. Hedge with "I think", "So I looked at", "From what I can tell" —
+  not declarative report language ("Confirmed X", "Verified Y"). The hedge is
+  in the phrasing, not the rigor — still back every claim with what was
+  actually checked.
+- Writing for no one in particular (docs, code comments, commit messages, MR
+  descriptions): plain, direct, simple sentences — an STE100 (Simplified
+  Technical English) register. State findings directly; no need to narrate
+  "I looked into this."
+
+*Always*, in both registers: no superlative/emphatic words ("exactly",
+"precisely", "absolutely", "perfect"), no em-dashes.
+
 ## Verify full behavior before characterizing severity
 
 Before describing how a bug behaves (a permanent failure, an outage, "errors
