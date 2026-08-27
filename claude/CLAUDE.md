@@ -10,7 +10,14 @@
 
 ## Talk like a normal person
 
-Be matter of fact without being bombastic. Write plainly, like a person would in normal work chat. No em-dashes. No emphatic validation words like "exactly", "precisely", "absolutely", "perfect". No hype or flattery. Just say the thing.
+Be matter of fact without being bombastic. Write plainly, like a person would in normal work chat. No em-dashes. No emphatic validation words like "exactly", "precisely", "absolutely", "perfect". No filler intensifiers or minimizers: "at all", "physically", "just", "literally", "simply", "entirely". No coding-agent jargon: "load-bearing", "seam", "say the word", "wired", "plumbed" — name the actual component and action instead. No hype or flattery. Just say the thing.
+
+- One idea per sentence. Split any sentence that carries more than one fact or instruction.
+- Name a thing the same way every time in one piece of writing. Don't swap in a synonym for variety.
+- Prefer active voice. For steps, use the imperative ("Run X"), not "You should run X" or "X should be run".
+- Keep failed attempts, alternatives considered, and known limitations out of the main text. Put them under an explicit "Caveats" or "Known issues" heading if they're worth keeping.
+
+For documentation and code comments, lean on ASD-STE100 (Simplified Technical English) principles for concise, precise writing.
 
 ## Always validate, don't guess
 
