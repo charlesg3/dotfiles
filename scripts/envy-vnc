@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Open Screen Sharing to envy through phil's direct Ethernet link.
+#
+# envy is reached over SSH via phil (the `envy` host in ~/.ssh/config), so this
+# works at home and over WireGuard, and the last hop is phil's cable to envy
+# instead of two extra Wi-Fi hops. The tunnel closes on its own when the
+# Screen Sharing session ends.
+#
+# Usage: envy-vnc [local-port]    (default 5901)
+
+set -euo pipefail
+
+DOTFILES="$(cd "$(dirname "$0")/.." && pwd)"
+. "$DOTFILES/common.sh"
+
+if [[ "$(uname)" != Darwin ]]; then
+    err "envy-vnc opens macOS Screen Sharing; run it on a Mac."
+    exit 1
+fi
+
+PORT="${1:-5901}"
+
+if nc -z -G 1 127.0.0.1 "$PORT" 2>/dev/null; then
+    err "Local port $PORT is already in use (another tunnel?). Pass a different port."
+    exit 1
+fi
+
+_spin "Opening tunnel to envy"
+# `sleep 20` keeps ssh up until Screen Sharing connects; after that ssh stays
+# alive for as long as the forwarded connection is open. ssh's errors go to a
+# file, not a pipe: the backgrounded ssh would hold a pipe open forever.
+errors="$(mktemp)"
+trap 'rm -f "$errors"' EXIT
+if ! ssh -f -o ExitOnForwardFailure=yes -L "$PORT:localhost:5900" envy sleep 20 \
+        </dev/null >/dev/null 2>"$errors"; then
+    _clear_spin
+    err "Could not open the tunnel to envy:"
+    grep -v "Pseudo-terminal" "$errors" | sed 's/^/      /'
+    warn "If phil is rebooting or the KVM is on phil, use plain vnc://envy instead."
+    exit 1
+fi
+_clear_spin
+ok "Tunnel up on localhost:$PORT"
+open "vnc://localhost:$PORT"
