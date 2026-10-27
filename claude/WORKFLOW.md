@@ -302,9 +302,9 @@ Pad the columns by hand. A list with bold labels also survives and reads better
 for two or three rows.
 
 **What does survive**, both routes: code spans, bold, italic, strikethrough,
-lists, block quotes and code blocks. Links survive as links only when a real
-clipboard carries the HTML flavour; a synthesised paste of the same HTML does
-not, so a labelled link sent that way arrives spelled out.
+lists, block quotes and code blocks. Labelled links survive too, from a real
+clipboard with the HTML flavour and from sdraft's synthesised paste (confirmed
+2026-10-02).
 
 **A plain-text fallback is not decoration.** When a paste carries both flavours
 Slack may take the plain one, which is exactly what happens to a table. Write
@@ -352,8 +352,10 @@ OS dialog. The address is built the way the client addresses itself,
 own current address.
 
 The Markdown rules are the ones above, applied: a heading becomes bold because
-Slack has none, a table becomes a padded code block, and a labelled link is
-written out as `words (url)` because the composer has no syntax for one.
+Slack has none, a table becomes a padded code block, and `[words](url)` becomes
+a real link. The `left in ... unsent:` line sdraft prints shows the plain-text
+flavour, where a link reads `words (url)`; that line does not mean the link is
+missing. `--dry-run` shows the `<a href>` in the HTML flavour.
 
 **It drives Chrome itself, over the debugging protocol.** There is no session
 manager, no daemon and no pid file, and Playwright is not installed anywhere: it
