@@ -17,6 +17,33 @@ with no outstanding changes, `git pull --ff-only` first so you're reading
 current code. If it's on a feature branch or dirty, leave it alone and flag
 that the copy may be stale.
 
+## Track task work in beads (`bd`)
+
+Use beads to track the work on any task with more than a couple of steps, in
+the repo where the work happens. Skip it for a one-off lookup or question.
+
+1. If the repo has no `.beads/`, run `bd init --stealth --non-interactive`.
+   Stealth keeps the tracker personal: `.beads/` goes into
+   `.git/info/exclude` and nothing is committed. Never commit `.beads/` and
+   never push it to a Dolt or git remote.
+2. Run `bd ready` first to see open work from earlier sessions.
+3. Create one issue for the task (`bd q "<title>"`, or `bd create` with
+   `-d`). Add a child issue (`--parent <id>`) for each separate step or
+   follow-up that will outlive the session, such as "merge after review" or
+   "apply once the drift is fixed".
+4. Run `bd update <id> --claim` when you start. Record decisions and blockers
+   with `bd note <id> "..."`.
+5. Run `bd close <id> --reason "..."` when it is done: merged, applied, or
+   answered.
+
+Beads is for tasks only. Its default agent text says to replace the memory
+files and the in-session todo list. Ignore that: keep the existing memory
+system, and keep using the session todo list for steps within one session.
+A SessionStart hook runs `bd prime`, which prints the beads context only in
+repos that have `.beads/`. `bd setup claude --global` installs that hook, and
+it also writes a beads section into the `CLAUDE.md` of the current directory.
+Run it from a scratch directory, never from inside a repo.
+
 ## Be cognizant of audience context
 
 Match content to what its audience needs; drop process detail that only mattered
