@@ -457,3 +457,125 @@ One more trap while poking at the page: do not build a scratch element and
 assign `innerHTML` to strip tags. Docs enforces Trusted Types, so the assignment
 throws `This document requires 'TrustedHTML' assignment` and that failure reads
 like the fetch failed. Use a regex, or parse the HTML outside the browser.
+
+## Pasting Markdown into Google Docs: what actually converts, what doesn't
+
+Docs' own "Automatically detect Markdown" paste feature (Tools > Preferences)
+converts headings, bold/italic, lists, and `[text](url)` links **on paste**.
+It does not do the same on live typing — typed `# Heading` and `[text](url)`
+stay as literal characters, no heading style, no hyperlink. Confirmed by
+typing both via automation into a real doc and reading the result back: no
+`font-size:20pt` heading styling, no `<a href>` created. Don't assume a
+typing-based test tells you anything about paste behavior; they're different
+code paths.
+
+**A `[text](#some-anchor)` link does not resolve to an internal heading, ever,
+paste or type.** GitHub-style anchor slugs are a CommonMark-rendering
+convention Docs has no concept of. Docs' own internal heading links use a
+completely different, per-document, auto-generated bookmark id
+(`#heading=h.<random-hash>`, e.g. `#heading=h.rg0s3y8vspw5`) that only exists
+once that heading has actually been created in that specific document — there
+is no way to predict it from portable Markdown authored before the doc
+exists.
+
+**The bare `#h.xxxxx` fragment `/mobilebasic` exports is not the whole
+reference, and pasting just that fragment does not work.** A doc that uses
+Docs' tabs feature needs the tab identified too: a link created through
+Docs' own UI (Insert > Link > Headings and bookmarks) resolves to
+`?tab=t.<tabhash>#heading=h.<headinghash>` — the full query string plus a
+`heading=` prefix on the fragment, not `#h.<headinghash>` alone. The
+`/mobilebasic` export flattens every tab into one long page and simplifies
+every internal anchor down to the bare `#h.xxxxx` form regardless of what
+the real link underneath actually points to (confirmed: grepping the export
+for any `href` containing `tab=` next to a heading anchor turns up nothing,
+even for a document known to have real, working tab-qualified links) — so
+the export is fine for confirming a heading exists, but not for reading back
+the string a working link needs.
+
+**Confirmed live: pasting `[text](?tab=t.<tabhash>#heading=h.<headinghash>)`
+as Markdown DOES produce a working link**, indistinguishable from one made
+through the UI (same blue-highlight-on-click navigation). Get the tab hash
+from a real working link already in the document (Insert > Link on an
+existing native link, or ask whoever's editing to paste one example URL) —
+it's the same for every heading within one tab, so one example is enough to
+construct every other link in that tab. Get each heading hash from the
+`/mobilebasic` export's `id="h.xxxxx"` attributes (still valid for this
+purpose) or from the TOC/cross-reference links already in the doc.
+
+**Verifying a set of internal links is intact:** pulling every `href="#..."`
+in a section against every `id="..."` in the doc catches an outright
+orphaned reference (the target heading was deleted and recreated rather than
+edited in place, which mints a new random hash and strands every old link
+pointing at the original one) — worth doing, but remember it only proves the
+*heading* exists, not that a given pasted link string had the right
+`?tab=...#heading=h....` shape to actually navigate.
+
+```python
+import re
+html = open('export.html', encoding='utf-8', errors='replace').read()
+hrefs = set(re.findall(r'href="(#[^"]*)"', html))
+ids = set('#' + m for m in re.findall(r'id="([^"]+)"', html))
+print('orphaned:', [h for h in hrefs if h not in ids])
+```
+
+A doc using multiple tabs/sub-tabs is a separate, real cause of "the link
+does nothing" worth ruling out too: a bookmark's scroll-to-heading behavior
+may not visibly fire if the target heading lives in a different tab than the
+one currently open, independent of whether the link itself is the right type.
+
+## Automating a real paste into Google Docs: what does and doesn't work
+
+Unlike Slack's Quill editor (which sdraft drives by dispatching a synthetic
+`ClipboardEvent` directly), **Google Docs silently ignores a scripted paste
+event.** Docs' hidden input target is a `contenteditable` inside
+`document.querySelector('.docs-texteventtarget-iframe').contentDocument` —
+you can find it and dispatch a well-formed `new ClipboardEvent('paste',
+{clipboardData, bubbles: true, cancelable: true})` on it and the call
+succeeds (`dispatchEvent` returns `true`, nothing throws), but nothing gets
+inserted. The likely cause is Docs checking `event.isTrusted`, which a
+JS-constructed event never has, unlike Slack's paste handler which doesn't
+check it.
+
+**CDP's `Input.dispatchKeyEvent` sending a real Cmd+V combo is not reliable
+either.** Sending `keyDown`/`keyUp` for `Meta` and `v` with the right
+modifiers and `commands: ['paste']` produced no error and no result — CDP key
+events don't reliably trigger the OS-level clipboard access a genuine paste
+needs.
+
+**Real OS-level keystroke injection (`osascript`/System Events) can work, but
+targeting is unreliable and the blast radius is real.** `tell application
+"Google Chrome" to activate` plus `tell application "System Events" to
+keystroke "v" using command down` sends a genuine, trusted keystroke — but
+`activate` brings the *application* forward, not necessarily the *tab* (or
+even the *window*) meant, and `System Events`' window-title reporting can be
+stale or return a different window than whatever CDP's `Page.bringToFront`
+just switched to internally. On a machine with multiple real Chrome windows
+open (a mail client, other docs, dashboards), this risks sending a real
+keystroke into someone else's live window. Verify with a screenshot
+(`Page.captureScreenshot`) and cross-check window/tab lists (`/json/list`,
+`tell application "System Events" to ... get name of every window`) before
+trusting it landed where intended, and stop rather than retry blindly if the
+state is ambiguous — worst case with Docs specifically is low (auto-save
+means a stray keystroke in the wrong *document* doesn't destroy anything, but
+it can still leave a mess to clean up, or land in an unrelated app's window
+like a mail draft).
+
+**What reliably works: CDP's `Input.insertText`, scoped to the tab's own CDP
+target.** This is real character insertion (used by browser automation/test
+frameworks generally) and Docs accepts it as legitimate input with no
+`isTrusted` problem, no OS-level window targeting, no ambiguity about which
+tab receives it — the CDP session is already bound to one specific target.
+Click into the editor first via `Input.dispatchMouseEvent` (mousePressed +
+mouseReleased at the editor's bounding-rect coordinates, found via
+`document.querySelector('.kix-appview-editor').getBoundingClientRect()`),
+then `Input.insertText({text: '...'})`. **But this simulates typing, not
+pasting** — it does not trigger Docs' paste-specific markdown conversion (see
+above), so it's useful for inserting literal text or driving a controlled
+experiment, not for reproducing what a human's real clipboard paste will do.
+
+**Net effect: there is no fully faithful way to automate "paste this Markdown
+into Docs and get the converted result" from this environment.** The
+practical split: automation generates content and puts it on the real OS
+clipboard (`pbcopy`) for a human to paste with a real Cmd+V, and automation's
+role on the read side is exporting via `/mobilebasic` afterward to verify
+what actually landed — not performing the paste itself.
