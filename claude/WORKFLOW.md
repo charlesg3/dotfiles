@@ -188,15 +188,16 @@ copies:
 
 - **`scripts/merge-monitor` in this repo** works in any GitLab repo and is on
   the PATH. Run `merge-monitor <MR>` from the repo. With no `--project`, it
-  finds the project from `origin`. The comment header lists its events.
+  finds the project from `origin`.
 - **The `merge-monitor` skill in `lepton-internal`**
   (`.claude/skills/merge-monitor/SKILL.md`, script
   `tools/gitlab/merge-monitor.py`) is the team's copy. Use it for lepton
   repos. Site notes say where the checkout is.
 
-How to act on each event, when to ask the human, and how to merge are in the
-skill. The same rules apply to the dotfiles script, which names its system
-note event `[event]` instead of `[system-note]`.
+The two scripts are the same except for the default project. The
+lepton-internal one defaults to `dgxc-lepton/lepton`. The events, how to act
+on each one, when to ask the human, and how to merge are in the skill. When
+you change one script, copy the change to the other.
 
 ## gh CLI gotchas
 
