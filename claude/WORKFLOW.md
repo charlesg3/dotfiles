@@ -181,66 +181,22 @@ suggestions for the human to accept, not auto-applied.
 
 ## Merge monitor
 
-A background watcher on an open MR that carries it through review and merge with
-minimal babysitting. Armed with the `Monitor` tool running a polling script,
-persistent, ~90s poll. It emits an event line only on state changes, and each
-event re-invokes Claude to act. Site notes hold the script path and the default
-project.
+A background watcher on an open GitLab MR that carries it through review,
+CI, merge and the post-merge pipeline. Run it with the `Monitor` tool. Each
+line it prints is one state change and re-invokes the agent. There are two
+copies:
 
-**Post-merge watching only applies where the target branch runs push pipelines.**
-Trunk usually does; release branches often don't, and the pipelines attached to
-their commits are merge-request-event runs on a train ref. A backport merged
-*through a train* therefore has a pipeline at its final sha, because the train
-ref's sha becomes the merged commit; one merged *directly* has none and never
-will. So the same script can look fine on one release backport and hang after
-`[merged]` on the next. Stop at `[merged]` when the target isn't trunk, and
-verify by reading the file at the branch ref instead:
-`git show origin/<branch>:<path> | grep <the change>`.
+- **`scripts/merge-monitor` in this repo** works in any GitLab repo and is on
+  the PATH. Run `merge-monitor <MR>` from the repo. With no `--project`, it
+  finds the project from `origin`. The comment header lists its events.
+- **The `merge-monitor` skill in `lepton-internal`**
+  (`.claude/skills/merge-monitor/SKILL.md`, script
+  `tools/gitlab/merge-monitor.py`) is the team's copy. Use it for lepton
+  repos. Site notes say where the checkout is.
 
-Events and the response to each:
-
-- `[note] <author>: ...` — a real comment, from a human or from a bot that posts
-  findings; author is not filtered, because a review bot's comment is as
-  actionable as a person's. If it's a question or an easy fix, address it: reply
-  on the discussion and resolve the thread once answered. If it asks for a real
-  design change or is ambiguous, surface it to the human instead of acting.
-- `[event] <author>: ...` — the system notes worth reacting to: approvals and
-  unapprovals, new or force-pushed commits, draft/ready flips, thread
-  resolution, target-branch changes, and auto-merge arm/abort. An approval is a
-  system note, so suppressing all of them leaves the monitor blind to one
-  landing. The remaining system notes (labels, assignees, milestones, title and
-  description edits, review requests, "mentioned in") stay suppressed as noise.
-- `[pipeline] X -> Y` — CI state change. Informational.
-- `[merge-status] X -> Y` — mergeability changed. This is the signal that
-  catches a merge train dropping the MR: the train runs its own pipeline against
-  a train ref, which is not the MR's head pipeline, so a drop is otherwise
-  invisible. Transient `checking`/`unchecked`/`preparing` transitions are
-  suppressed.
-- `[job-failed] <id>|<name>|allow_failure=..|<url>` — judge flaky vs real. If
-  flaky/infra (network, timeout, known-flaky), retry the job. If a real failure,
-  fix it (spawn a coding agent, verify, push); don't land until green.
-- `[ready-to-merge]` — CI green, approved, discussions resolved, no conflicts.
-  Land it. Where the project uses merge trains, the merge call adds it to the
-  train; API-created MRs need `squash=true` or the train drops them
-  ("Unexpected commit SHA in train ref").
-- `[merged] <sha>` — merged. `<sha>` is the commit that landed on the target
-  branch, which with ff plus squash merge trains is the squash commit: the merge
-  commit sha is null under that config, and the MR's own sha is the branch head,
-  which has no target-branch pipeline. The monitor doesn't exit here; it switches
-  to watching that commit's pipeline.
-- `[post-pipeline] X -> Y`, `[post-job-failed] <id>|<name>|allow_failure=..|<url>`,
-  `[post-failed] <sha> ...` — the merge commit's pipeline on the target branch.
-  Treat failures exactly as pre-merge: retry flaky/infra jobs, fix real ones.
-  Landing a merge is not the same as landing it green, and a red trunk is not
-  something to discover later. `[post-failed]` keeps polling rather than
-  exiting, so a retry is picked up.
-- `[post-green] <sha>` — the target-branch pipeline for the merge commit is
-  green. The monitor exits here. Follow with whatever behavior test the change
-  calls for.
-
-Escalate to the human rather than acting autonomously for: design-change
-requests, merge conflicts needing judgment, or failures whose fix is not
-obvious.
+How to act on each event, when to ask the human, and how to merge are in the
+skill. The same rules apply to the dotfiles script, which names its system
+note event `[event]` instead of `[system-note]`.
 
 ## gh CLI gotchas
 
