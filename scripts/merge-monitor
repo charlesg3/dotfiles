@@ -4,9 +4,7 @@ commit. Print one line when something changes, so that a Monitor task can
 react to it.
 
 Requires an authenticated glab. With no --project, the project comes from
-the origin remote of the current directory. For the events and how to act on
-them, see the merge-monitor skill in lepton-internal
-(.claude/skills/merge-monitor/SKILL.md).
+the origin remote of the current directory.
 """
 import argparse
 import html

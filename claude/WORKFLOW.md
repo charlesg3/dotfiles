@@ -182,22 +182,14 @@ suggestions for the human to accept, not auto-applied.
 ## Merge monitor
 
 A background watcher on an open GitLab MR that carries it through review,
-CI, merge and the post-merge pipeline. Run it with the `Monitor` tool. Each
-line it prints is one state change and re-invokes the agent. There are two
-copies:
+CI, merge and the post-merge pipeline. The script is `scripts/merge-monitor`
+in this repo, and it is on the PATH. Run `merge-monitor <MR>` from the repo
+with the `Monitor` tool. Each line it prints is one state change and
+re-invokes the agent. With no `--project`, it finds the project from
+`origin`.
 
-- **`scripts/merge-monitor` in this repo** works in any GitLab repo and is on
-  the PATH. Run `merge-monitor <MR>` from the repo. With no `--project`, it
-  finds the project from `origin`.
-- **The `merge-monitor` skill in `lepton-internal`**
-  (`.claude/skills/merge-monitor/SKILL.md`, script
-  `tools/gitlab/merge-monitor.py`) is the team's copy. Use it for lepton
-  repos. Site notes say where the checkout is.
-
-The two scripts are the same except for the default project. The
-lepton-internal one defaults to `dgxc-lepton/lepton`. The events, how to act
-on each one, when to ask the human, and how to merge are in the skill. When
-you change one script, copy the change to the other.
+Site notes say where the guide to the events is, and which other copy of the
+script to keep in step with this one.
 
 ## gh CLI gotchas
 
