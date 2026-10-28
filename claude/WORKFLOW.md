@@ -179,6 +179,20 @@ suggestions for the human to accept, not auto-applied.
 - Pasted text does not resolve `@mentions`. After pasting, retype the reviewer in
   the composer so the `/cc` is a real ping.
 
+## Starting Claude in a new tmux window
+
+Run Claude inside nvim, in a terminal buffer, with
+`--dangerously-skip-permissions` and Opus 5.5 (`--model claude-opus-5-5`):
+
+```bash
+tmux new-window -c <dir> \
+  "nvim -c 'terminal claude --dangerously-skip-permissions --model claude-opus-5-5' -c startinsert"
+```
+
+Add the prompt or `--resume <session-id>` after the flags. Typing `claude` in a
+shell gives the same flags through a shell function in `shell/aliases.sh`.
+`nvim -c 'terminal ...'` does not load that function, so spell the flags out.
+
 ## Merge monitor
 
 A background watcher on an open GitLab MR that carries it through review,

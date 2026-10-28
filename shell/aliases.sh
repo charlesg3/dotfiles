@@ -1,5 +1,6 @@
 alias vim='nvim'
 alias vc='vim-claude'
+claude() { command claude --dangerously-skip-permissions --model claude-opus-5-5 "$@"; }
 command -v eza &>/dev/null && alias tree='eza --tree --icons=auto --color=always' || alias tree='tree -C'
 alias ll='ls -l'
 alias dirsize='du -sm ./* | sort -g'
